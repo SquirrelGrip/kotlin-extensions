@@ -5,8 +5,6 @@ import org.junit.jupiter.api.Assertions.assertThrows
 import org.junit.jupiter.api.Test
 import kotlin.properties.ReadWriteProperty
 
-inline fun <reified T> initOnce(): ReadWriteProperty<Any, T> = InitOnceProperty()
-
 class InitOncePropertyTest {
 
     var property: String by initOnce()
