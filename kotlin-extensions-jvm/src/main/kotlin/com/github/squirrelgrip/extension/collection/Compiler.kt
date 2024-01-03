@@ -1,10 +1,12 @@
 package com.github.squirrelgrip.extension.collection
 
-import org.antlr.v4.runtime.CharStreams
-import org.antlr.v4.runtime.CommonTokenStream
+import com.github.squirrelgrip.extension.collection.MapStringCompiler.ESCAPE_REGEX
+import org.antlr.v4.runtime.*
 import java.util.*
 
 object MapStringCompiler : Compiler<String>() {
+    val ESCAPE_REGEX = "\\\\([\\\\\\\"\\(\\)&\\|!\\?*])".toRegex()
+
     override fun matchesRegex(
         regExString: String,
         candidate: String
@@ -74,7 +76,30 @@ abstract class Compiler<T> {
 
             override fun visitVariableExpression(ctx: DrainerParser.VariableExpressionContext): (T) -> Boolean =
                 {
-                    matches(ctx.variable().text, it)
+                    visit(ctx.variable()).invoke(it)
+                }
+
+            override fun visitQuotedString(ctx: DrainerParser.QuotedStringContext): (T) -> Boolean =
+                {
+                    matches(
+                        ESCAPE_REGEX.replace(ctx.text.substring(1, ctx.text.length - 1)) {
+                            it.groupValues[1]
+                        }, it
+                    )
+                }
+
+            override fun visitString(ctx: DrainerParser.StringContext): (T) -> Boolean =
+                {
+                    matches(
+                        ESCAPE_REGEX.replace(ctx.text) {
+                            it.groupValues[1]
+                        }, it
+                    )
+                }
+
+            override fun visitLiteralExpression(ctx: DrainerParser.LiteralExpressionContext): (T) -> Boolean =
+                {
+                    ctx.literal().text.uppercase() == "TRUE"
                 }
 
             override fun visitWildVariableExpression(ctx: DrainerParser.WildVariableExpressionContext): (T) -> Boolean =
@@ -125,7 +150,21 @@ abstract class Compiler<T> {
                             CharStreams.fromString(expression)
                         )
                     )
-                ).predicate()
+                ).also {
+                    it.addErrorListener(object : BaseErrorListener() {
+                        override fun syntaxError(
+                            recognizer: Recognizer<*, *>?,
+                            offendingSymbol: Any?,
+                            line: Int,
+                            charPositionInLine: Int,
+                            message: String?,
+                            p5: RecognitionException?
+                        ) {
+                            throw Exception("Invalid Expression: $message")
+                        }
+
+                    })
+                }.predicate()
             )
         } else {
             { false }

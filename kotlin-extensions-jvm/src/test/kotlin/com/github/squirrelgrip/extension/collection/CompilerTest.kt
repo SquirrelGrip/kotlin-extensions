@@ -2,8 +2,35 @@ package com.github.squirrelgrip.extension.collection
 
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.Arguments
+import org.junit.jupiter.params.provider.MethodSource
+import java.util.stream.Stream
 
 internal class CompilerTest {
+
+    companion object {
+        @JvmStatic
+        fun compile(): Stream<Arguments> =
+            Stream.of(
+                Arguments.of("A", "B", "C"),
+                Arguments.of("_A", "_B", "_C"),
+                Arguments.of("A_A", "B_B", "C_C"),
+                Arguments.of("A-A", "B-B", "C-C"),
+                Arguments.of("\"A\"", "\"B\"", "\"C\""),
+                Arguments.of("\"\\\"A\"", "\"\\\"B\"", "\"\\\"C\""),
+                Arguments.of("\"\\\" A\"", "\"\\\" B\"", "\"\\\" C\""),
+                Arguments.of("\\\"", "\\(", "\\)"),
+                Arguments.of("\\!", "\\&", "\\|"),
+                Arguments.of("\\n", "\\r", "\\t"),
+                Arguments.of("\\\\A", "\\\\B", "\\\\C"),
+                Arguments.of("\\(A", "\\(B", "\\(C"),
+                Arguments.of("\\)A", "\\)B", "\\)C"),
+                Arguments.of("\\!A", "\\!B", "\\!C"),
+                Arguments.of("\\|A", "\\|B", "\\|C"),
+                Arguments.of("\\&A", "\\&B", "\\&C"),
+            )
+    }
 
     val testSubject = FlatMapCollectionStringCompiler
     val setOfA = setOf("A")
@@ -25,6 +52,32 @@ internal class CompilerTest {
         7 to setOfAC,
         8 to setOfAAndAB,
     )
+
+    @ParameterizedTest
+    @MethodSource
+    fun compile(a: String, b: String, c: String) {
+        assertThat(filter(a, b, c, a)).containsExactly(a)
+        assertThat(filter(a, b, c, b)).containsExactly(b)
+        assertThat(filter(a, b, c, c)).containsExactly(c)
+        assertThat(filter(a, b, c, "!$a")).containsExactly(b, c)
+        assertThat(filter(a, b, c, "!$b")).containsExactly(a, c)
+        assertThat(filter(a, b, c, "!$c")).containsExactly(a, b)
+        assertThat(filter(a, b, c, "")).isEmpty()
+        assertThat(filter(a, b, c, null)).containsExactly(a, b, c)
+
+        assertThat(filter(a, b, c, "!($a)")).containsExactly(b, c)
+        assertThat(filter(a, b, c, "($a)")).containsExactly(a)
+    }
+
+    private fun filter(
+        objectA: String,
+        objectB: String,
+        objectC: String,
+        expression: String?
+    ): List<String> {
+        println(expression)
+        return listOf(objectA, objectB, objectC).mapFilterByExpression(expression, emptyMap()) { it }
+    }
 
     @Test
     fun compile_GivenSingleVariable() {
@@ -59,7 +112,14 @@ internal class CompilerTest {
         assertThat(compile.invoke(setOfC)).isTrue
         assertThat(compile.invoke(setOfAAndB)).isFalse
 
-        assertThat(collection.flatMapFilterByExpression(input) { it.second }.map { it.first }).containsExactly(2, 3, 5, 6, 7, 8)
+        assertThat(collection.flatMapFilterByExpression(input) { it.second }.map { it.first }).containsExactly(
+            2,
+            3,
+            5,
+            6,
+            7,
+            8
+        )
     }
 
     @Test
@@ -71,7 +131,14 @@ internal class CompilerTest {
         assertThat(compile.invoke(setOfC)).isTrue
         assertThat(compile.invoke(setOfAAndB)).isFalse
 
-        assertThat(collection.flatMapFilterByExpression(input) { it.second }.map { it.first }).containsExactly(2, 3, 5, 6, 7, 8)
+        assertThat(collection.flatMapFilterByExpression(input) { it.second }.map { it.first }).containsExactly(
+            2,
+            3,
+            5,
+            6,
+            7,
+            8
+        )
     }
 
     @Test
@@ -107,7 +174,15 @@ internal class CompilerTest {
         assertThat(compile.invoke(setOfC)).isTrue
         assertThat(compile.invoke(setOfAAndB)).isTrue
 
-        assertThat(collection.flatMapFilterByExpression(input) { it.second }.map { it.first }).containsExactly(1, 3, 4, 5, 6, 7, 8)
+        assertThat(collection.flatMapFilterByExpression(input) { it.second }.map { it.first }).containsExactly(
+            1,
+            3,
+            4,
+            5,
+            6,
+            7,
+            8
+        )
     }
 
     @Test
@@ -237,6 +312,42 @@ internal class CompilerTest {
     }
 
     @Test
+    fun compile_GivenTrueLiteralVariable() {
+        val input = "TRUE"
+        val compile = testSubject.compile(input)
+        assertThat(compile.invoke(setOfA)).isTrue
+        assertThat(compile.invoke(setOfB)).isTrue
+        assertThat(compile.invoke(setOfC)).isTrue
+        assertThat(compile.invoke(setOfAAndB)).isTrue
+
+        assertThat(
+            collection.flatMapFilterByExpression(input) {
+                it.second
+            }.map {
+                it.first
+            }
+        ).containsExactly(1, 2, 3, 4, 5, 6, 7, 8)
+    }
+
+    @Test
+    fun compile_GivenFalseLiteralVariable() {
+        val input = "FALSE"
+        val compile = testSubject.compile(input)
+        assertThat(compile.invoke(setOfA)).isFalse
+        assertThat(compile.invoke(setOfB)).isFalse
+        assertThat(compile.invoke(setOfC)).isFalse
+        assertThat(compile.invoke(setOfAAndB)).isFalse
+
+        assertThat(
+            collection.flatMapFilterByExpression(input) {
+                it.second
+            }.map {
+                it.first
+            }
+        ).isEmpty()
+    }
+
+    @Test
     fun compile_GivenAQuestionMarkVariable() {
         val input = "A?"
         val compile = testSubject.compile(input)
@@ -293,13 +404,25 @@ internal class CompilerTest {
         assertThat("(A)".filterByExpression<TestEnum>(mapOf("X" to "A|B"))).containsExactly(TestEnum.A)
         assertThat("!A".filterByExpression<TestEnum>(mapOf("X" to "A|B"))).containsExactly(TestEnum.B, TestEnum.C)
         assertThat("!(A)".filterByExpression<TestEnum>(mapOf("X" to "A|B"))).containsExactly(TestEnum.B, TestEnum.C)
-        assertThat("!A|A".filterByExpression<TestEnum>(mapOf("X" to "A|B"))).containsExactly(TestEnum.A, TestEnum.B, TestEnum.C)
+        assertThat("!A|A".filterByExpression<TestEnum>(mapOf("X" to "A|B"))).containsExactly(
+            TestEnum.A,
+            TestEnum.B,
+            TestEnum.C
+        )
         assertThat("!A&A".filterByExpression<TestEnum>(mapOf("X" to "A|B"))).isEmpty()
-        assertThat("(!A|B)|A".filterByExpression<TestEnum>(mapOf("X" to "A|B"))).containsExactly(TestEnum.A, TestEnum.B, TestEnum.C)
+        assertThat("(!A|B)|A".filterByExpression<TestEnum>(mapOf("X" to "A|B"))).containsExactly(
+            TestEnum.A,
+            TestEnum.B,
+            TestEnum.C
+        )
         assertThat("X".filterByExpression<TestEnum>(mapOf("X" to "A|B"))).containsExactly(TestEnum.A, TestEnum.B)
         assertThat("!X".filterByExpression<TestEnum>(mapOf("X" to "A|B"))).containsExactly(TestEnum.C)
 
-        assertThat("ALL".filterByExpression<TestEnum>(mapOf("ALL" to "A|B|C"))).containsExactly(TestEnum.A, TestEnum.B, TestEnum.C)
+        assertThat("ALL".filterByExpression<TestEnum>(mapOf("ALL" to "A|B|C"))).containsExactly(
+            TestEnum.A,
+            TestEnum.B,
+            TestEnum.C
+        )
     }
 
     @Test
@@ -312,7 +435,11 @@ internal class CompilerTest {
         assertThat(objectList.mapFilterByExpression("") { it.value }).isEmpty()
         assertThat(objectList.mapFilterByExpression(null) { it.value }).containsAll(objectList)
 
-        assertThat(objectList.mapFilterByExpression("ALL", mapOf("ALL" to "A|B|C"))  { it.value }).containsAll(objectList)
+        assertThat(
+            objectList.mapFilterByExpression(
+                "ALL",
+                mapOf("ALL" to "A|B|C")
+            ) { it.value }).containsAll(objectList)
     }
 
     @Test
@@ -325,7 +452,9 @@ internal class CompilerTest {
         assertThat(objectArray.mapFilterByExpression("") { it.value }).isEmpty()
         assertThat(objectArray.mapFilterByExpression(null) { it.value }).containsAll(objectList)
 
-        assertThat(objectArray.mapFilterByExpression("ALL", mapOf("ALL" to "A|B|C")) { it.value }).containsAll(objectList)
+        assertThat(objectArray.mapFilterByExpression("ALL", mapOf("ALL" to "A|B|C")) { it.value }).containsAll(
+            objectList
+        )
     }
 
     @Test
@@ -365,6 +494,8 @@ internal class CompilerTest {
         assertThat(stringList.asSequence().filterByExpression("").toList()).isEmpty()
         assertThat(stringList.asSequence().filterByExpression(null).toList()).containsAll(stringList)
 
-        assertThat(stringList.asSequence().filterByExpression("ALL", mapOf("ALL" to "A|B|C")).toList()).containsAll(stringList)
+        assertThat(stringList.asSequence().filterByExpression("ALL", mapOf("ALL" to "A|B|C")).toList()).containsAll(
+            stringList
+        )
     }
 }
