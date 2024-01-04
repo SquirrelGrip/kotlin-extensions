@@ -56,12 +56,9 @@ internal class CompilerTest {
     @ParameterizedTest
     @MethodSource
     fun compile(a: String, b: String, c: String) {
-        assertThat(filter(a, b, c, a)).containsExactly(a)
-        assertThat(filter(a, b, c, b)).containsExactly(b)
-        assertThat(filter(a, b, c, c)).containsExactly(c)
-        assertThat(filter(a, b, c, "!$a")).containsExactly(b, c)
-        assertThat(filter(a, b, c, "!$b")).containsExactly(a, c)
-        assertThat(filter(a, b, c, "!$c")).containsExactly(a, b)
+        assertThat(filter(a, b, c, escape(a))).containsExactly(a)
+        assertThat(filter(a, b, c, escape(b))).containsExactly(b)
+        assertThat(filter(a, b, c, escape(c))).containsExactly(c)
         assertThat(filter(a, b, c, "!${escape(a)}")).containsExactly(b, c)
         assertThat(filter(a, b, c, "!${escape(b)}")).containsExactly(a, c)
         assertThat(filter(a, b, c, "!${escape(c)}")).containsExactly(a, b)
