@@ -9,6 +9,27 @@ import java.util.stream.Stream
 
 internal class CompilerTest {
 
+    val testSubject = FlatMapCollectionStringCompiler
+    val setOfA = setOf("A")
+    val setOfB = setOf("B")
+    val setOfC = setOf("C")
+    val setOfAAndB = setOf("A", "B")
+    val setOfAA = setOf("AA")
+    val setOfAB = setOf("AB")
+    val setOfAC = setOf("AC")
+    val setOfAAndAB = setOf("AA", "AB")
+
+    val collection = listOf(
+        1 to setOfA,
+        2 to setOfB,
+        3 to setOfC,
+        4 to setOfAAndB,
+        5 to setOfAA,
+        6 to setOfAB,
+        7 to setOfAC,
+        8 to setOfAAndAB,
+    )
+
     companion object {
         @JvmStatic
         fun compile(): Stream<Arguments> =
@@ -32,27 +53,6 @@ internal class CompilerTest {
             )
     }
 
-    val testSubject = FlatMapCollectionStringCompiler
-    val setOfA = setOf("A")
-    val setOfB = setOf("B")
-    val setOfC = setOf("C")
-    val setOfAAndB = setOf("A", "B")
-    val setOfAA = setOf("AA")
-    val setOfAB = setOf("AB")
-    val setOfAC = setOf("AC")
-    val setOfAAndAB = setOf("AA", "AB")
-
-    val collection = listOf(
-        1 to setOfA,
-        2 to setOfB,
-        3 to setOfC,
-        4 to setOfAAndB,
-        5 to setOfAA,
-        6 to setOfAB,
-        7 to setOfAC,
-        8 to setOfAAndAB,
-    )
-
     @ParameterizedTest
     @MethodSource
     fun compile(a: String, b: String, c: String) {
@@ -62,22 +62,25 @@ internal class CompilerTest {
         assertThat(filter(a, b, c, "!$a")).containsExactly(b, c)
         assertThat(filter(a, b, c, "!$b")).containsExactly(a, c)
         assertThat(filter(a, b, c, "!$c")).containsExactly(a, b)
+        assertThat(filter(a, b, c, "!${escape(a)}")).containsExactly(b, c)
+        assertThat(filter(a, b, c, "!${escape(b)}")).containsExactly(a, c)
+        assertThat(filter(a, b, c, "!${escape(c)}")).containsExactly(a, b)
         assertThat(filter(a, b, c, "")).isEmpty()
         assertThat(filter(a, b, c, null)).containsExactly(a, b, c)
 
-        assertThat(filter(a, b, c, "!($a)")).containsExactly(b, c)
-        assertThat(filter(a, b, c, "($a)")).containsExactly(a)
+        assertThat(filter(a, b, c, "!(${escape(a)})")).containsExactly(b, c)
+        assertThat(filter(a, b, c, "(${escape(a)})")).containsExactly(a)
     }
+
+    private fun escape(a: String): String = "\"${"([\"\\\\])".toRegex().replace(a, "\\\\$1")}\""
 
     private fun filter(
         objectA: String,
         objectB: String,
         objectC: String,
         expression: String?
-    ): List<String> {
-        println(expression)
-        return listOf(objectA, objectB, objectC).mapFilterByExpression(expression, emptyMap()) { it }
-    }
+    ): List<String> =
+        listOf(objectA, objectB, objectC).mapFilterByExpression(expression, emptyMap()) { it }
 
     @Test
     fun compile_GivenSingleVariable() {
