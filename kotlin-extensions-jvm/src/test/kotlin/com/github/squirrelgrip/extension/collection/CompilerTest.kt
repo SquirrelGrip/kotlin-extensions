@@ -82,79 +82,80 @@ internal class CompilerTest {
         )
 
         @JvmStatic
-        fun validExpression(): Stream<Arguments> {
-            return listOf<List<Arguments>>(
+        fun validExpression(): Stream<Arguments> =
+            listOf<List<String>>(
                 validChars.map {
-                    Arguments.of(it)
+                    it
                 },
                 validChars.map {
-                    Arguments.of(" $it")
+                    " $it"
                 },
                 validChars.map {
-                    Arguments.of(" $it ")
+                    " $it "
                 },
                 validChars.map {
-                    Arguments.of(" $it & $it ")
+                    " $it & $it "
                 },
                 (operations + escaped).map {
-                    Arguments.of("\\$it")
+                    "\\$it"
                 },
                 (operations + escaped).map {
-                    Arguments.of(" \\$it")
+                    " \\$it"
                 },
                 operations.map {
-                    Arguments.of("\"$it\"")
+                    "\"$it\""
                 },
                 operations.map {
-                    Arguments.of("\" $it\" ")
+                    "\" $it\" "
                 },
                 operations.map {
-                    Arguments.of("\" $it\"")
+                    "\" $it\""
                 },
                 operations.map {
-                    Arguments.of("\\$it")
+                    "\\$it"
                 },
                 escaped.map {
-                    Arguments.of("\"\\$it\"")
+                    "\"\\$it\""
                 },
-                generateArguments(validChars, validChars, { first, second -> "$first&$second" }), // A&B
-                generateArguments(validChars, validChars, { first, second -> "$first|$second" }), // A|B
-                generateArguments(validChars, validChars, { first, second -> "$first&!$second" }), // A&!B
+                generateArguments(validChars, validChars) { first, second -> "$first&$second" }, // A&B
+                generateArguments(validChars, validChars) { first, second -> "$first|$second" }, // A|B
+                generateArguments(validChars, validChars) { first, second -> "$first&!$second" }, // A&!B
                 generateArguments(
                     validChars,
-                    validChars,
-                    { first, second -> "$first\\&$second" }), // A\&B eg. Letter, Backslash, And, Operand
+                    validChars
+                ) { first, second -> "$first\\&$second" }, // A\&B eg. Letter, Backslash, And, Operand
                 generateArguments(
                     validChars,
-                    operations,
-                    { first, second -> "$first\\$second" }), // A\( eg. Letter, Backslash, Operand
+                    operations
+                ) { first, second -> "$first\\$second" }, // A\( eg. Letter, Backslash, Operand
                 generateArguments(
                     validChars,
-                    operations,
-                    { first, second -> "\"$first$second\"" }), // "A(" eg. Double Quote, Letter, Operand, Double Quote
+                    operations
+                ) { first, second -> "\"$first$second\"" }, // "A(" eg. Double Quote, Letter, Operand, Double Quote
+                generateArguments(
+                    validChars,
+                    escaped
+                ) { first, second -> "$first\\$second" }, // A\" eg. Letter, Backslash, Escaped Char
+                generateArguments(
+                    validChars,
+                    escaped
+                ) { first, second -> "\"$first\\$second\"" }, // "A\"" eg. Double Quote, Letter, Backslash, Escaped Char, Double Quote
                 generateArguments(
                     validChars,
                     escaped,
-                    { first, second -> "$first\\$second" }), // A\" eg. Letter, Backslash, Escaped Char
-                generateArguments(
-                    validChars,
-                    escaped,
-                    { first, second -> "\"$first\\$second\"" }), // "A\"" eg. Double Quote, Letter, Backslash, Escaped Char, Double Quote
-                generateArguments(
-                    validChars,
-                    escaped,
-                    { first, second -> "$first\\$second&!($first)" }), // A\"&!(A) eg. Letter, Backslash, Escaped Char, And, Not, Open Paren, Letter, Closed Paren
-            ).flatten().stream()
-        }
+                ) { first, second -> "$first\\$second&!($first)" } // A\"&!(A) eg. Letter, Backslash, Escaped Char, And, Not, Open Paren, Letter, Closed Paren,
+            ).flatten().map {
+                Arguments.of(it)
+            }.stream()
 
         private fun generateArguments(
             list1: List<String>,
             list2: List<String>,
             expression: (first: String, second: String) -> String
-        ): List<Arguments> =
+        ): List<String> =
             list1.map { first ->
                 list2.map { second ->
-                    Arguments.of(expression.invoke(first, second))
+                    expression.invoke(first, second)
                 }
             }.flatten()
     }
