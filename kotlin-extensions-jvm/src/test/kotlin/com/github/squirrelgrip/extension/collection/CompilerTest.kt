@@ -51,6 +51,112 @@ internal class CompilerTest {
                 Arguments.of("\\|A", "\\|B", "\\|C"),
                 Arguments.of("\\&A", "\\&B", "\\&C"),
             )
+
+        val operations = listOf("(", ")", "&", "|", "!", "?", "*")
+        val escaped = listOf("\"", "\\")
+        val validChars = listOf(
+            "A",
+            "@",
+            "#",
+            "$",
+            "%",
+            "^",
+            "{",
+            "}",
+            "[",
+            "]",
+            ":",
+            ";",
+            ",",
+            ".",
+            "<",
+            ">",
+            "/",
+            "+",
+            "=",
+            "-",
+            "_",
+            "`",
+            "~",
+            "1",
+        )
+
+        @JvmStatic
+        fun validExpression(): Stream<Arguments> {
+            return listOf<List<Arguments>>(
+                validChars.map {
+                    Arguments.of(it)
+                },
+                validChars.map {
+                    Arguments.of(" $it")
+                },
+                validChars.map {
+                    Arguments.of(" $it ")
+                },
+                validChars.map {
+                    Arguments.of(" $it & $it ")
+                },
+                (operations + escaped).map {
+                    Arguments.of("\\$it")
+                },
+                (operations + escaped).map {
+                    Arguments.of(" \\$it")
+                },
+                operations.map {
+                    Arguments.of("\"$it\"")
+                },
+                operations.map {
+                    Arguments.of("\" $it\" ")
+                },
+                operations.map {
+                    Arguments.of("\" $it\"")
+                },
+                operations.map {
+                    Arguments.of("\\$it")
+                },
+                escaped.map {
+                    Arguments.of("\"\\$it\"")
+                },
+                generateArguments(validChars, validChars, { first, second -> "$first&$second" }), // A&B
+                generateArguments(validChars, validChars, { first, second -> "$first|$second" }), // A|B
+                generateArguments(validChars, validChars, { first, second -> "$first&!$second" }), // A&!B
+                generateArguments(
+                    validChars,
+                    validChars,
+                    { first, second -> "$first\\&$second" }), // A\&B eg. Letter, Backslash, And, Operand
+                generateArguments(
+                    validChars,
+                    operations,
+                    { first, second -> "$first\\$second" }), // A\( eg. Letter, Backslash, Operand
+                generateArguments(
+                    validChars,
+                    operations,
+                    { first, second -> "\"$first$second\"" }), // "A(" eg. Double Quote, Letter, Operand, Double Quote
+                generateArguments(
+                    validChars,
+                    escaped,
+                    { first, second -> "$first\\$second" }), // A\" eg. Letter, Backslash, Escaped Char
+                generateArguments(
+                    validChars,
+                    escaped,
+                    { first, second -> "\"$first\\$second\"" }), // "A\"" eg. Double Quote, Letter, Backslash, Escaped Char, Double Quote
+                generateArguments(
+                    validChars,
+                    escaped,
+                    { first, second -> "$first\\$second&!($first)" }), // A\"&!(A) eg. Letter, Backslash, Escaped Char, And, Not, Open Paren, Letter, Closed Paren
+            ).flatten().stream()
+        }
+
+        private fun generateArguments(
+            list1: List<String>,
+            list2: List<String>,
+            expression: (first: String, second: String) -> String
+        ): List<Arguments> =
+            list1.map { first ->
+                list2.map { second ->
+                    Arguments.of(expression.invoke(first, second))
+                }
+            }.flatten()
     }
 
     @ParameterizedTest
@@ -67,6 +173,13 @@ internal class CompilerTest {
 
         assertThat(filter(a, b, c, "!(${escape(a)})")).containsExactly(b, c)
         assertThat(filter(a, b, c, "(${escape(a)})")).containsExactly(a)
+        assertThat(filter(a, b, c, "(${escape(a)}|${escape(b)})")).containsExactly(a, b)
+    }
+
+    @ParameterizedTest
+    @MethodSource
+    fun validExpression(expression: String) {
+        testSubject.compile(expression)
     }
 
     private fun escape(a: String): String = "\"${"([\"\\\\])".toRegex().replace(a, "\\\\$1")}\""

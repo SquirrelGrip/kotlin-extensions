@@ -1,12 +1,9 @@
 package com.github.squirrelgrip.extension.collection
 
-import com.github.squirrelgrip.extension.collection.MapStringCompiler.ESCAPE_REGEX
 import org.antlr.v4.runtime.*
 import java.util.*
 
 object MapStringCompiler : Compiler<String>() {
-    val ESCAPE_REGEX = "\\\\([\\\\\\\"\\(\\)&\\|!\\?*])".toRegex()
-
     override fun matchesRegex(
         regExString: String,
         candidate: String
@@ -57,8 +54,8 @@ object FlatMapSequenceStringCompiler : Compiler<Sequence<String>>() {
 }
 
 abstract class Compiler<T> {
-    val visitor: DrainerBaseVisitor<(T) -> Boolean> =
-        object : DrainerBaseVisitor<(T) -> Boolean>() {
+    val visitor: DrainerParserBaseVisitor<(T) -> Boolean> =
+        object : DrainerParserBaseVisitor<(T) -> Boolean>() {
             override fun visitAndExpression(ctx: DrainerParser.AndExpressionContext): (T) -> Boolean =
                 {
                     visit(ctx.expression(0)).invoke(it) && visit(ctx.expression(1)).invoke(it)
@@ -74,32 +71,14 @@ abstract class Compiler<T> {
                     !visit(ctx.expression()).invoke(it)
                 }
 
-            override fun visitVariableExpression(ctx: DrainerParser.VariableExpressionContext): (T) -> Boolean =
-                {
-                    visit(ctx.variable()).invoke(it)
-                }
-
-            override fun visitQuotedString(ctx: DrainerParser.QuotedStringContext): (T) -> Boolean =
-                {
-                    matches(
-                        ESCAPE_REGEX.replace(ctx.text.substring(1, ctx.text.length - 1)) {
-                            it.groupValues[1]
-                        }, it
-                    )
-                }
-
-            override fun visitString(ctx: DrainerParser.StringContext): (T) -> Boolean =
-                {
-                    matches(
-                        ESCAPE_REGEX.replace(ctx.text) {
-                            it.groupValues[1]
-                        }, it
-                    )
-                }
-
             override fun visitLiteralExpression(ctx: DrainerParser.LiteralExpressionContext): (T) -> Boolean =
                 {
                     ctx.literal().text.uppercase() == "TRUE"
+                }
+
+            override fun visitVariableExpression(ctx: DrainerParser.VariableExpressionContext): (T) -> Boolean =
+                {
+                    matches(ctx.variable().text, it)
                 }
 
             override fun visitWildVariableExpression(ctx: DrainerParser.WildVariableExpressionContext): (T) -> Boolean =
