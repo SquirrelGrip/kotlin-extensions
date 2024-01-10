@@ -7,24 +7,30 @@ options {
 predicate: expression EOF;
 
 expression:
-  literal # LiteralExpression
-  | variable # VariableExpression
-  | globVariable # GlobVariableExpression
-  | NOT expression # NotExpression
-  | LPAREN expression RPAREN # ParenExpression
-  | expression AND expression # AndExpression
-  | expression OR expression # OrExpression
-  | expression XOR expression # XorExpression;
+  literal #LiteralExpression
+  | value #TextExpression
+  | glob #GlobExpression
+  | REGEX regex #RegexExpression
+  | NOT expression #NotExpression
+  | LPAREN expression RPAREN #ParenExpression
+  | expression AND expression #AndExpression
+  | expression OR expression #OrExpression
+  | expression XOR expression #XorExpression;
 
 literal: BOOLEAN;
 text: IN_STRING_ESCAPED_TEXT | IN_STRING_TEXT;
-value: ESCAPED_OPERAND | VALUE;
-quotedValue: DOUBLE_QUOTE text* IN_STRING_DOUBLE_QUOTE;
+part: ESCAPED_OPERAND | VALUE;
 
-globChar: ASTERISK | QUESTION_MARK;
-globQuotedValue: DOUBLE_QUOTE globText+ IN_STRING_DOUBLE_QUOTE;
-globText: text* IN_STRING_WILD_TEXT text*;
-globValue: value* globChar value*;
-globVariable: globValue+ | globQuotedValue;
+quotedValueExpression: DOUBLE_QUOTE text* IN_STRING_DOUBLE_QUOTE;
+quotedGlobExpression: DOUBLE_QUOTE globText+ IN_STRING_DOUBLE_QUOTE;
+quotedRegexExpression: IN_REGEX_DOUBLE_QUOTE regexText+ IN_REGEX_STRING_DOUBLE_QUOTE;
 
-variable: value+ | quotedValue;
+globText: text* IN_STRING_GLOB_CHAR text*;
+globPart: part* GLOB_CHAR part*;
+
+regexText: IN_REGEX_STRING_ESCAPED_TEXT | IN_REGEX_STRING_TEXT;
+regexPart: IN_REGEX_ESCAPED_TEXT | IN_REGEX_TEXT;
+
+regex: regexPart+ | quotedRegexExpression;
+glob: globPart+ | quotedGlobExpression;
+value: part+ | quotedValueExpression;

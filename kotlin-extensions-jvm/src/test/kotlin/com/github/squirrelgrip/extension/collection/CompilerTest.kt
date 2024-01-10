@@ -54,7 +54,7 @@ internal class CompilerTest {
                 Arguments.of("\\&A", "\\&B", "\\&C"),
             )
 
-        val operations = listOf("(", ")", "&", "|", "^", "!", "?", "*")
+        val operations = listOf("(", ")", "&", "|", "^", "!", "?", "*", "~")
         val escaped = listOf("\"", "\\")
         val validChars = listOf(
             "A",
@@ -78,7 +78,6 @@ internal class CompilerTest {
             "-",
             "_",
             "`",
-            "~",
             "1",
         )
 

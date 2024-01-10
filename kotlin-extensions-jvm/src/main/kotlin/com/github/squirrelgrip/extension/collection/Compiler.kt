@@ -56,12 +56,12 @@ abstract class Compiler<T> {
                     ctx.text.uppercase() == "TRUE"
                 }
 
-            override fun visitVariableExpression(ctx: DrainerParser.VariableExpressionContext): (T) -> Boolean =
+            override fun visitTextExpression(ctx: DrainerParser.TextExpressionContext): (T) -> Boolean =
                 {
                     matches(ctx.text, it)
                 }
 
-            override fun visitGlobVariableExpression(ctx: DrainerParser.GlobVariableExpressionContext): (T) -> Boolean =
+            override fun visitGlobExpression(ctx: DrainerParser.GlobExpressionContext): (T) -> Boolean =
                 {
                     matchesGlob(ctx.text, it)
                 }
