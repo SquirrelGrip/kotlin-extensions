@@ -9,18 +9,22 @@ predicate: expression EOF;
 expression:
   literal # LiteralExpression
   | variable # VariableExpression
-  | wildVariable # WildVariableExpression
+  | globVariable # GlobVariableExpression
   | NOT expression # NotExpression
   | LPAREN expression RPAREN # ParenExpression
   | expression AND expression # AndExpression
-  | expression OR expression # OrExpression;
+  | expression OR expression # OrExpression
+  | expression XOR expression # XorExpression;
 
 literal: BOOLEAN;
+text: IN_STRING_ESCAPED_TEXT | IN_STRING_TEXT;
+value: ESCAPED_OPERAND | VALUE;
+quotedValue: DOUBLE_QUOTE text* IN_STRING_DOUBLE_QUOTE;
 
-variable: (value | quotedValue);
-value: (ESCAPED_TEXT | TEXT)+;
-quotedValue: DOUBLE_QUOTE (IN_STRING_ESCAPED_TEXT | IN_STRING_TEXT)* IN_STRING_DOUBLE_QUOTE;
+globChar: ASTERISK | QUESTION_MARK;
+globQuotedValue: DOUBLE_QUOTE globText+ IN_STRING_DOUBLE_QUOTE;
+globText: text* IN_STRING_WILD_TEXT text*;
+globValue: value* globChar value*;
+globVariable: globValue+ | globQuotedValue;
 
-wildVariable: wildValue | wildQuotedValue;
-wildValue: (ESCAPED_TEXT | TEXT | ASTERISK | QUESTION_MARK)+;
-wildQuotedValue: DOUBLE_QUOTE (IN_STRING_ESCAPED_TEXT | IN_STRING_TEXT | IN_STRING_WILD_TEXT)+ IN_STRING_DOUBLE_QUOTE;
+variable: value+ | quotedValue;

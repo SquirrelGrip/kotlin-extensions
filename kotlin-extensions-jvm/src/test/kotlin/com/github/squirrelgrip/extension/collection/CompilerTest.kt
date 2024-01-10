@@ -18,6 +18,7 @@ internal class CompilerTest {
     val setOfAB = setOf("AB")
     val setOfAC = setOf("AC")
     val setOfAAndAB = setOf("AA", "AB")
+    val setOfEmpty = setOf("")
 
     val collection = listOf(
         1 to setOfA,
@@ -28,6 +29,7 @@ internal class CompilerTest {
         6 to setOfAB,
         7 to setOfAC,
         8 to setOfAAndAB,
+        9 to setOfEmpty,
     )
 
     companion object {
@@ -52,7 +54,7 @@ internal class CompilerTest {
                 Arguments.of("\\&A", "\\&B", "\\&C"),
             )
 
-        val operations = listOf("(", ")", "&", "|", "!", "?", "*")
+        val operations = listOf("(", ")", "&", "|", "^", "!", "?", "*")
         val escaped = listOf("\"", "\\")
         val validChars = listOf(
             "A",
@@ -60,7 +62,6 @@ internal class CompilerTest {
             "#",
             "$",
             "%",
-            "^",
             "{",
             "}",
             "[",
@@ -83,67 +84,42 @@ internal class CompilerTest {
 
         @JvmStatic
         fun validExpression(): Stream<Arguments> =
-            listOf<List<String>>(
-                validChars.map {
-                    it
-                },
-                validChars.map {
-                    " $it"
-                },
-                validChars.map {
-                    " $it "
-                },
-                validChars.map {
-                    " $it & $it "
-                },
-                (operations + escaped).map {
-                    "\\$it"
-                },
-                (operations + escaped).map {
-                    " \\$it"
-                },
-                operations.map {
-                    "\"$it\""
-                },
-                operations.map {
-                    "\" $it\" "
-                },
-                operations.map {
-                    "\" $it\""
-                },
-                operations.map {
-                    "\\$it"
-                },
-                escaped.map {
-                    "\"\\$it\""
-                },
-                generateArguments(validChars, validChars) { first, second -> "$first&$second" }, // A&B
-                generateArguments(validChars, validChars) { first, second -> "$first|$second" }, // A|B
-                generateArguments(validChars, validChars) { first, second -> "$first&!$second" }, // A&!B
-                generateArguments(
-                    validChars,
-                    validChars
-                ) { first, second -> "$first\\&$second" }, // A\&B eg. Letter, Backslash, And, Operand
-                generateArguments(
-                    validChars,
-                    operations
-                ) { first, second -> "$first\\$second" }, // A\( eg. Letter, Backslash, Operand
-                generateArguments(
-                    validChars,
-                    operations
-                ) { first, second -> "\"$first$second\"" }, // "A(" eg. Double Quote, Letter, Operand, Double Quote
-                generateArguments(
-                    validChars,
-                    escaped
-                ) { first, second -> "$first\\$second" }, // A\" eg. Letter, Backslash, Escaped Char
-                generateArguments(
-                    validChars,
-                    escaped
-                ) { first, second -> "\"$first\\$second\"" }, // "A\"" eg. Double Quote, Letter, Backslash, Escaped Char, Double Quote
-                generateArguments(
-                    validChars,
-                    escaped,
-                ) { first, second -> "$first\\$second&!($first)" } // A\"&!(A) eg. Letter, Backslash, Escaped Char, And, Not, Open Paren, Letter, Closed Paren,
+            listOf(
+                validChars.map { it },
+                validChars.map { " $it" },
+                validChars.map { "$it*" },
+                validChars.map { "$it\\\\*" },
+                validChars.map { " $it " },
+                validChars.map { " $it & $it " },
+                (operations + escaped).map { "\\$it" },
+                (operations + escaped).map { " \\$it" },
+                operations.map { "\"$it\"" },
+                operations.map { "\" $it\" " },
+                operations.map { "\" $it\"" },
+                operations.map { "\\$it" },
+                escaped.map { "\"\\$it\"" },
+                // A&B
+                generateArguments(validChars, validChars) { first, second -> "$first&$second" },
+                // A|B
+                generateArguments(validChars, validChars) { first, second -> "$first|$second" },
+                // A&!B
+                generateArguments(validChars, validChars) { first, second -> "$first&!$second" },
+                // A\&B eg. Letter, Backslash, And, Operand
+                generateArguments(validChars, validChars) { first, second -> "$first\\&$second" },
+                // AA\&B eg. Letter, Backslash, And, Operand
+                generateArguments(validChars, validChars) { first, second -> "$first$first\\&$second" },
+                // A\( eg. Letter, Backslash, Operand
+                generateArguments(validChars, operations) { first, second -> "$first\\$second" },
+                // A\(A eg. Letter, Backslash, Operand, Letter
+                generateArguments(validChars, operations) { first, second -> "$first\\$second$first" },
+                // "A(" eg. Double Quote, Letter, Operand, Double Quote
+                generateArguments(validChars, operations) { first, second -> "\"$first$second\"" },
+                // A\" eg. Letter, Backslash, Escaped Char
+                generateArguments(validChars, escaped) { first, second -> "$first\\$second" },
+                // "A\"" eg. Double Quote, Letter, Backslash, Escaped Char, Double Quote
+                generateArguments(validChars, escaped) { first, second -> "\"$first\\$second\"" },
+                // A\"&!(A) eg. Letter, Backslash, Escaped Char, And, Not, Open Paren, Letter, Closed Paren
+                generateArguments(validChars, escaped) { first, second -> "$first\\$second&!($first)" }
             ).flatten().map {
                 Arguments.of(it)
             }.stream()
@@ -170,8 +146,8 @@ internal class CompilerTest {
         assertThat(filter(a, b, c, "!${escape(b)}")).containsExactly(a, c)
         assertThat(filter(a, b, c, "!${escape(c)}")).containsExactly(a, b)
         assertThat(filter(a, b, c, "")).isEmpty()
+        assertThat(filter(a, b, c, "\"\"")).isEmpty()
         assertThat(filter(a, b, c, null)).containsExactly(a, b, c)
-
         assertThat(filter(a, b, c, "!(${escape(a)})")).containsExactly(b, c)
         assertThat(filter(a, b, c, "(${escape(a)})")).containsExactly(a)
         assertThat(filter(a, b, c, "(${escape(a)}|${escape(b)})")).containsExactly(a, b)
@@ -180,6 +156,7 @@ internal class CompilerTest {
     @ParameterizedTest
     @MethodSource
     fun validExpression(expression: String) {
+//        println(expression)
         testSubject.compile(expression)
     }
 
@@ -190,8 +167,10 @@ internal class CompilerTest {
         objectB: String,
         objectC: String,
         expression: String?
-    ): List<String> =
-        listOf(objectA, objectB, objectC).mapFilterByExpression(expression, emptyMap()) { it }
+    ): List<String> {
+        println(expression)
+        return listOf(objectA, objectB, objectC).mapFilterByExpression(expression, emptyMap()) { it }
+    }
 
     @Test
     fun compile_GivenSingleVariable() {
@@ -203,6 +182,19 @@ internal class CompilerTest {
         assertThat(compile.invoke(setOfAAndB)).isTrue
 
         assertThat(collection.flatMapFilterByExpression(input) { it.second }.map { it.first }).containsExactly(1, 4)
+    }
+
+    @Test
+    fun compile_GivenEmpty() {
+        val input = "\"\""
+        val compile = testSubject.compile(input)
+        assertThat(compile.invoke(setOfEmpty)).isTrue
+        assertThat(compile.invoke(setOfA)).isFalse
+        assertThat(compile.invoke(setOfB)).isFalse
+        assertThat(compile.invoke(setOfC)).isFalse
+        assertThat(compile.invoke(setOfAAndB)).isFalse
+
+        assertThat(collection.flatMapFilterByExpression(input) { it.second }.map { it.first }).containsExactly(9)
     }
 
     @Test
@@ -232,7 +224,8 @@ internal class CompilerTest {
             5,
             6,
             7,
-            8
+            8,
+            9,
         )
     }
 
@@ -251,7 +244,8 @@ internal class CompilerTest {
             5,
             6,
             7,
-            8
+            8,
+            9
         )
     }
 
@@ -288,15 +282,9 @@ internal class CompilerTest {
         assertThat(compile.invoke(setOfC)).isTrue
         assertThat(compile.invoke(setOfAAndB)).isTrue
 
-        assertThat(collection.flatMapFilterByExpression(input) { it.second }.map { it.first }).containsExactly(
-            1,
-            3,
-            4,
-            5,
-            6,
-            7,
-            8
-        )
+        assertThat(
+            collection.flatMapFilterByExpression(input) { it.second }.map { it.first }
+        ).containsExactly(1, 3, 4, 5, 6, 7, 8, 9)
     }
 
     @Test
@@ -314,7 +302,7 @@ internal class CompilerTest {
             }.map {
                 it.first
             }
-        ).containsExactly(1, 2, 3, 4, 5, 6, 7, 8)
+        ).containsExactly(1, 2, 3, 4, 5, 6, 7, 8, 9)
     }
 
     @Test
@@ -332,7 +320,63 @@ internal class CompilerTest {
             }.map {
                 it.first
             }
-        ).containsExactly(1, 2, 3, 4)
+        ).containsExactly(1, 2, 3, 4, 9)
+    }
+
+    @Test
+    fun compile_GivenXOrB() {
+        val input = "A^B"
+        val compile = testSubject.compile(input)
+        assertThat(compile.invoke(setOfA)).isTrue
+        assertThat(compile.invoke(setOfB)).isTrue
+        assertThat(compile.invoke(setOfC)).isFalse
+        assertThat(compile.invoke(setOfAAndB)).isFalse
+
+        assertThat(
+            collection.flatMapFilterByExpression(input) {
+                it.second
+            }.map {
+                it.first
+            }
+        ).containsExactly(1, 2)
+    }
+
+    @Test
+    fun compile_GivenEmptyQuoteExpression() {
+        val input = "\"\""
+        val compile = testSubject.compile(input)
+        assertThat(compile.invoke(setOfA)).isFalse
+        assertThat(compile.invoke(setOfB)).isFalse
+        assertThat(compile.invoke(setOfC)).isFalse
+        assertThat(compile.invoke(setOfAAndB)).isFalse
+        assertThat(compile.invoke(setOfEmpty)).isTrue
+
+        assertThat(
+            collection.flatMapFilterByExpression(input) {
+                it.second
+            }.map {
+                it.first
+            }
+        ).containsExactly(9)
+    }
+
+    @Test
+    fun compile_GivenGlobExpression() {
+        val input = "*"
+        val compile = testSubject.compile(input)
+        assertThat(compile.invoke(setOfA)).isTrue
+        assertThat(compile.invoke(setOfB)).isTrue
+        assertThat(compile.invoke(setOfC)).isTrue
+        assertThat(compile.invoke(setOfAAndB)).isTrue
+        assertThat(compile.invoke(setOfEmpty)).isTrue
+
+        assertThat(
+            collection.flatMapFilterByExpression(input) {
+                it.second
+            }.map {
+                it.first
+            }
+        ).containsExactly(1, 2, 3, 4, 5, 6, 7, 8, 9)
     }
 
     @Test
@@ -350,7 +394,7 @@ internal class CompilerTest {
             }.map {
                 it.first
             }
-        ).containsExactly(1, 2, 3, 4, 5, 6, 7, 8)
+        ).containsExactly(1, 2, 3, 4, 5, 6, 7, 8, 9)
     }
 
     @Test
@@ -361,6 +405,7 @@ internal class CompilerTest {
         assertThat(compile.invoke(setOfB)).isTrue
         assertThat(compile.invoke(setOfC)).isTrue
         assertThat(compile.invoke(setOfAAndB)).isTrue
+        assertThat(compile.invoke(setOfEmpty)).isTrue
 
         assertThat(
             collection.flatMapFilterByExpression(input) {
@@ -368,7 +413,26 @@ internal class CompilerTest {
             }.map {
                 it.first
             }
-        ).containsExactly(1, 2, 3, 4)
+        ).containsExactly(1, 2, 3, 4, 9)
+    }
+
+    @Test
+    fun compile_GivenOrNotAAsteriskVariableButAlsoNotEmpty() {
+        val input = "A|!A*"
+        val compile = testSubject.compile(input)
+        assertThat(compile.invoke(setOfA)).isTrue
+        assertThat(compile.invoke(setOfB)).isTrue
+        assertThat(compile.invoke(setOfC)).isTrue
+        assertThat(compile.invoke(setOfAAndB)).isTrue
+        assertThat(compile.invoke(setOfEmpty)).isTrue
+
+        assertThat(
+            collection.flatMapFilterByExpression(input) {
+                it.second
+            }.map {
+                it.first
+            }
+        ).containsExactly(1, 2, 3, 4, 9)
     }
 
     @Test
@@ -404,7 +468,7 @@ internal class CompilerTest {
             }.map {
                 it.first
             }
-        ).containsExactly(1, 2, 3, 4, 5, 6, 7, 8)
+        ).containsExactly(1, 2, 3, 4, 5, 6, 7, 8, 9)
     }
 
     @Test
@@ -440,7 +504,7 @@ internal class CompilerTest {
             }.map {
                 it.first
             }
-        ).containsExactly(1, 2, 3, 4, 5, 6, 7, 8)
+        ).containsExactly(1, 2, 3, 4, 5, 6, 7, 8, 9)
     }
 
     @Test

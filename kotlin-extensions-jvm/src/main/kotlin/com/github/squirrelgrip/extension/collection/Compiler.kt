@@ -4,58 +4,73 @@ import org.antlr.v4.runtime.*
 import java.util.*
 
 object MapStringCompiler : Compiler<String>() {
-    override fun matchesRegex(
-        regExString: String,
-        candidate: String
-    ): Boolean =
-        globToRegEx(regExString).matches(candidate)
-
     override fun matches(
         control: String,
         candidate: String
     ): Boolean =
-        control in candidate
+        control == candidate
+
+    override fun matchesRegex(regexString: String, candidate: String): Boolean =
+        regexString.toRegex().matches(candidate)
 }
 
 object FlatMapCollectionStringCompiler : Compiler<Collection<String>>() {
-    override fun matchesRegex(
-        regExString: String,
-        candidate: Collection<String>
-    ): Boolean =
-        globToRegEx(regExString).let { regex ->
-            candidate.any {
-                regex.matches(it)
-            }
-        }
-
     override fun matches(
         control: String,
         candidate: Collection<String>
     ): Boolean =
         control in candidate
+
+    override fun matchesRegex(regexString: String, candidate: Collection<String>): Boolean =
+        regexString.toRegex().let { regex ->
+            candidate.any {
+                regex.matches(it)
+            }
+        }
 }
 
 object FlatMapSequenceStringCompiler : Compiler<Sequence<String>>() {
-    override fun matchesRegex(
-        regExString: String,
-        candidate: Sequence<String>
-    ): Boolean =
-        globToRegEx(regExString).let { regex ->
-            candidate.any {
-                regex.matches(it)
-            }
-        }
-
     override fun matches(
         control: String,
         candidate: Sequence<String>
     ): Boolean =
         control in candidate
+
+    override fun matchesRegex(regexString: String, candidate: Sequence<String>): Boolean =
+        regexString.toRegex().let { regex ->
+            candidate.any {
+                regex.matches(it)
+            }
+        }
 }
 
 abstract class Compiler<T> {
     val visitor: DrainerParserBaseVisitor<(T) -> Boolean> =
         object : DrainerParserBaseVisitor<(T) -> Boolean>() {
+            override fun visitPredicate(ctx: DrainerParser.PredicateContext): (T) -> Boolean = {
+                visit(ctx.expression()).invoke(it)
+            }
+
+            override fun visitLiteralExpression(ctx: DrainerParser.LiteralExpressionContext): (T) -> Boolean =
+                {
+                    ctx.text.uppercase() == "TRUE"
+                }
+
+            override fun visitVariableExpression(ctx: DrainerParser.VariableExpressionContext): (T) -> Boolean =
+                {
+                    matches(ctx.text, it)
+                }
+
+            override fun visitGlobVariableExpression(ctx: DrainerParser.GlobVariableExpressionContext): (T) -> Boolean =
+                {
+                    matchesGlob(ctx.text, it)
+                }
+
+            override fun visitNotExpression(ctx: DrainerParser.NotExpressionContext): (T) -> Boolean =
+                {
+                    !visit(ctx.expression()).invoke(it)
+                }
+
             override fun visitAndExpression(ctx: DrainerParser.AndExpressionContext): (T) -> Boolean =
                 {
                     visit(ctx.expression(0)).invoke(it) && visit(ctx.expression(1)).invoke(it)
@@ -66,38 +81,25 @@ abstract class Compiler<T> {
                     visit(ctx.expression(0)).invoke(it) || visit(ctx.expression(1)).invoke(it)
                 }
 
-            override fun visitNotExpression(ctx: DrainerParser.NotExpressionContext): (T) -> Boolean =
+            override fun visitXorExpression(ctx: DrainerParser.XorExpressionContext): (T) -> Boolean =
                 {
-                    !visit(ctx.expression()).invoke(it)
-                }
-
-            override fun visitLiteralExpression(ctx: DrainerParser.LiteralExpressionContext): (T) -> Boolean =
-                {
-                    ctx.literal().text.uppercase() == "TRUE"
-                }
-
-            override fun visitVariableExpression(ctx: DrainerParser.VariableExpressionContext): (T) -> Boolean =
-                {
-                    matches(ctx.variable().text, it)
-                }
-
-            override fun visitWildVariableExpression(ctx: DrainerParser.WildVariableExpressionContext): (T) -> Boolean =
-                {
-                    matchesRegex(ctx.wildVariable().text, it)
+                    visit(ctx.expression(0)).invoke(it) xor visit(ctx.expression(1)).invoke(it)
                 }
 
             override fun visitParenExpression(ctx: DrainerParser.ParenExpressionContext): (T) -> Boolean =
                 {
                     visit(ctx.expression()).invoke(it)
                 }
-
-            override fun visitPredicate(ctx: DrainerParser.PredicateContext): (T) -> Boolean = {
-                visit(ctx.expression()).invoke(it)
-            }
         }
 
+    fun matchesGlob(
+        globString: String,
+        candidate: T
+    ): Boolean =
+        matchesRegex(globToRegEx(globString), candidate)
+
     abstract fun matchesRegex(
-        regExString: String,
+        regexString: String,
         candidate: T
     ): Boolean
 
@@ -106,8 +108,8 @@ abstract class Compiler<T> {
         candidate: T
     ): Boolean
 
-    fun globToRegEx(glob: String): Regex {
-        var out: String = "^"
+    fun globToRegEx(glob: String): String {
+        var out = "^"
         glob.forEach { c ->
             out += when (c) {
                 '*' -> ".*"
@@ -117,7 +119,7 @@ abstract class Compiler<T> {
             }
         }
         out += '$'
-        return out.toRegex()
+        return out
     }
 
     fun compile(expression: String): (T) -> Boolean =
