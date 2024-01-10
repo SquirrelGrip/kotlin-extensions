@@ -9,30 +9,46 @@ import java.util.stream.Stream
 
 internal class CompilerTest {
 
-    val testSubject = FlatMapCollectionStringCompiler
-    val setOfA = setOf("A")
-    val setOfB = setOf("B")
-    val setOfC = setOf("C")
-    val setOfAAndB = setOf("A", "B")
-    val setOfAA = setOf("AA")
-    val setOfAB = setOf("AB")
-    val setOfAC = setOf("AC")
-    val setOfAAndAB = setOf("AA", "AB")
-    val setOfEmpty = setOf("")
-
-    val collection = listOf(
-        1 to setOfA,
-        2 to setOfB,
-        3 to setOfC,
-        4 to setOfAAndB,
-        5 to setOfAA,
-        6 to setOfAB,
-        7 to setOfAC,
-        8 to setOfAAndAB,
-        9 to setOfEmpty,
-    )
-
     companion object {
+        val testSubject = FlatMapCollectionStringCompiler
+        val setOfA = setOf("A")
+        val setOfB = setOf("B")
+        val setOfC = setOf("C")
+        val setOfAAndB = setOf("A", "B")
+        val setOfAA = setOf("AA")
+        val setOfAB = setOf("AB")
+        val setOfAC = setOf("AC")
+        val setOfAAndAB = setOf("AA", "AB")
+        val setOfEmpty = setOf("")
+
+        val collection = listOf(
+            1 to setOfA,
+            2 to setOfB,
+            3 to setOfC,
+            4 to setOfAAndB,
+            5 to setOfAA,
+            6 to setOfAB,
+            7 to setOfAC,
+            8 to setOfAAndAB,
+            9 to setOfEmpty,
+        )
+
+        enum class TestEnum {
+            A, B, C
+        }
+
+        data class TestClass(val value: String)
+
+        val OBJECT_A = TestClass("A")
+        val OBJECT_B = TestClass("B")
+        val OBJECT_C = TestClass("C")
+
+        val objectList = listOf(OBJECT_A, OBJECT_B, OBJECT_C)
+        val objectArray = arrayOf(OBJECT_A, OBJECT_B, OBJECT_C)
+
+        val stringList = listOf("A", "B", "C")
+        val stringArray = arrayOf("A", "B", "C")
+
         @JvmStatic
         fun compile(): Stream<Arguments> =
             Stream.of(
@@ -180,7 +196,7 @@ internal class CompilerTest {
         assertThat(compile.invoke(setOfC)).isFalse
         assertThat(compile.invoke(setOfAAndB)).isTrue
 
-        assertThat(collection.flatMapFilterByExpression(input) { it.second }.map { it.first }).containsExactly(1, 4)
+        assertThat(getKeys(input)).containsExactly(1, 4)
     }
 
     @Test
@@ -193,7 +209,7 @@ internal class CompilerTest {
         assertThat(compile.invoke(setOfC)).isFalse
         assertThat(compile.invoke(setOfAAndB)).isFalse
 
-        assertThat(collection.flatMapFilterByExpression(input) { it.second }.map { it.first }).containsExactly(9)
+        assertThat(getKeys(input)).containsExactly(9)
     }
 
     @Test
@@ -205,7 +221,7 @@ internal class CompilerTest {
         assertThat(compile.invoke(setOfC)).isFalse
         assertThat(compile.invoke(setOfAAndB)).isTrue
 
-        assertThat(collection.flatMapFilterByExpression(input) { it.second }.map { it.first }).containsExactly(1, 4)
+        assertThat(getKeys(input)).containsExactly(1, 4)
     }
 
     @Test
@@ -217,7 +233,7 @@ internal class CompilerTest {
         assertThat(compile.invoke(setOfC)).isTrue
         assertThat(compile.invoke(setOfAAndB)).isFalse
 
-        assertThat(collection.flatMapFilterByExpression(input) { it.second }.map { it.first }).containsExactly(
+        assertThat(getKeys(input)).containsExactly(
             2,
             3,
             5,
@@ -237,7 +253,7 @@ internal class CompilerTest {
         assertThat(compile.invoke(setOfC)).isTrue
         assertThat(compile.invoke(setOfAAndB)).isFalse
 
-        assertThat(collection.flatMapFilterByExpression(input) { it.second }.map { it.first }).containsExactly(
+        assertThat(getKeys(input)).containsExactly(
             2,
             3,
             5,
@@ -257,7 +273,7 @@ internal class CompilerTest {
         assertThat(compile.invoke(setOfC)).isFalse
         assertThat(compile.invoke(setOfAAndB)).isTrue
 
-        assertThat(collection.flatMapFilterByExpression(input) { it.second }.map { it.first }).containsExactly(1, 2, 4)
+        assertThat(getKeys(input)).containsExactly(1, 2, 4)
     }
 
     @Test
@@ -269,21 +285,19 @@ internal class CompilerTest {
         assertThat(compile.invoke(setOfC)).isFalse
         assertThat(compile.invoke(setOfAAndB)).isTrue
 
-        assertThat(collection.flatMapFilterByExpression(input) { it.second }.map { it.first }).containsExactly(4)
+        assertThat(getKeys(input)).containsExactly(4)
     }
 
     @Test
     fun compile_GivenOrNotVariable() {
-        val input = "A|!B"
-        val compile = testSubject.compile(input)
+        val expression = "A|!B"
+        val compile = testSubject.compile(expression)
         assertThat(compile.invoke(setOfA)).isTrue
         assertThat(compile.invoke(setOfB)).isFalse
         assertThat(compile.invoke(setOfC)).isTrue
         assertThat(compile.invoke(setOfAAndB)).isTrue
 
-        assertThat(
-            collection.flatMapFilterByExpression(input) { it.second }.map { it.first }
-        ).containsExactly(1, 3, 4, 5, 6, 7, 8, 9)
+        assertThat(getKeys(expression)).containsExactly(1, 3, 4, 5, 6, 7, 8, 9)
     }
 
     @Test
@@ -295,74 +309,74 @@ internal class CompilerTest {
         assertThat(compile.invoke(setOfC)).isTrue
         assertThat(compile.invoke(setOfAAndB)).isTrue
 
-        assertThat(
-            collection.flatMapFilterByExpression(input) {
-                it.second
-            }.map {
-                it.first
-            }
-        ).containsExactly(1, 2, 3, 4, 5, 6, 7, 8, 9)
+        assertThat(getKeys(input)).containsExactly(1, 2, 3, 4, 5, 6, 7, 8, 9)
     }
 
     @Test
-    fun compile_GivenOrNotAQuestionMarkVariable() {
-        val input = "A|!A?"
-        val compile = testSubject.compile(input)
+    fun compile_GivenOrNotAQuestionMarkExpression() {
+        val expression = "A|!A?"
+        val compile = testSubject.compile(expression)
         assertThat(compile.invoke(setOfA)).isTrue
         assertThat(compile.invoke(setOfB)).isTrue
         assertThat(compile.invoke(setOfC)).isTrue
         assertThat(compile.invoke(setOfAAndB)).isTrue
 
-        assertThat(
-            collection.flatMapFilterByExpression(input) {
-                it.second
-            }.map {
-                it.first
-            }
-        ).containsExactly(1, 2, 3, 4, 9)
+        assertThat(getKeys(expression)).containsExactly(1, 2, 3, 4, 9)
+    }
+
+    @Test
+    fun compile_GivenRegexExpression() {
+        val expression = "~AB?~"
+        val compile = testSubject.compile(expression)
+        assertThat(compile.invoke(setOfA)).isTrue
+        assertThat(compile.invoke(setOfB)).isFalse
+        assertThat(compile.invoke(setOfC)).isFalse
+        assertThat(compile.invoke(setOfAAndB)).isTrue
+
+        assertThat(getKeys(expression)).containsExactly(1, 4, 6, 8)
+    }
+
+    @Test
+    fun compile_GivenRegexContainingTildeExpression() {
+        val expression = "~A[^B]~"
+        val compile = testSubject.compile(expression)
+        assertThat(compile.invoke(setOfA)).isFalse
+        assertThat(compile.invoke(setOfB)).isFalse
+        assertThat(compile.invoke(setOfC)).isFalse
+        assertThat(compile.invoke(setOfAAndB)).isFalse
+
+        assertThat(getKeys(expression)).containsExactly(5, 7, 8)
     }
 
     @Test
     fun compile_GivenXOrB() {
-        val input = "A^B"
-        val compile = testSubject.compile(input)
+        val expression = "A^B"
+        val compile = testSubject.compile(expression)
         assertThat(compile.invoke(setOfA)).isTrue
         assertThat(compile.invoke(setOfB)).isTrue
         assertThat(compile.invoke(setOfC)).isFalse
         assertThat(compile.invoke(setOfAAndB)).isFalse
 
-        assertThat(
-            collection.flatMapFilterByExpression(input) {
-                it.second
-            }.map {
-                it.first
-            }
-        ).containsExactly(1, 2)
+        assertThat(getKeys(expression)).containsExactly(1, 2)
     }
 
     @Test
     fun compile_GivenEmptyQuoteExpression() {
-        val input = "\"\""
-        val compile = testSubject.compile(input)
+        val expression = "\"\""
+        val compile = testSubject.compile(expression)
         assertThat(compile.invoke(setOfA)).isFalse
         assertThat(compile.invoke(setOfB)).isFalse
         assertThat(compile.invoke(setOfC)).isFalse
         assertThat(compile.invoke(setOfAAndB)).isFalse
         assertThat(compile.invoke(setOfEmpty)).isTrue
 
-        assertThat(
-            collection.flatMapFilterByExpression(input) {
-                it.second
-            }.map {
-                it.first
-            }
-        ).containsExactly(9)
+        assertThat(getKeys(expression)).containsExactly(9)
     }
 
     @Test
     fun compile_GivenGlobExpression() {
-        val input = "*"
-        val compile = testSubject.compile(input)
+        val expression = "*"
+        val compile = testSubject.compile(expression)
         assertThat(compile.invoke(setOfA)).isTrue
         assertThat(compile.invoke(setOfB)).isTrue
         assertThat(compile.invoke(setOfC)).isTrue
@@ -370,164 +384,112 @@ internal class CompilerTest {
         assertThat(compile.invoke(setOfEmpty)).isTrue
 
         assertThat(
-            collection.flatMapFilterByExpression(input) {
-                it.second
-            }.map {
-                it.first
-            }
+            getKeys(expression)
         ).containsExactly(1, 2, 3, 4, 5, 6, 7, 8, 9)
     }
 
     @Test
     fun compile_GivenAOrNotA() {
-        val input = "A|!A"
-        val compile = testSubject.compile(input)
+        val expression = "A|!A"
+        val compile = testSubject.compile(expression)
         assertThat(compile.invoke(setOfA)).isTrue
         assertThat(compile.invoke(setOfB)).isTrue
         assertThat(compile.invoke(setOfC)).isTrue
         assertThat(compile.invoke(setOfAAndB)).isTrue
 
-        assertThat(
-            collection.flatMapFilterByExpression(input) {
-                it.second
-            }.map {
-                it.first
-            }
-        ).containsExactly(1, 2, 3, 4, 5, 6, 7, 8, 9)
+        assertThat(getKeys(expression)).containsExactly(1, 2, 3, 4, 5, 6, 7, 8, 9)
     }
 
     @Test
     fun compile_GivenOrNotAAsteriskVariable() {
-        val input = "A|!A*"
-        val compile = testSubject.compile(input)
+        val expression = "A|!A*"
+        val compile = testSubject.compile(expression)
         assertThat(compile.invoke(setOfA)).isTrue
         assertThat(compile.invoke(setOfB)).isTrue
         assertThat(compile.invoke(setOfC)).isTrue
         assertThat(compile.invoke(setOfAAndB)).isTrue
         assertThat(compile.invoke(setOfEmpty)).isTrue
 
-        assertThat(
-            collection.flatMapFilterByExpression(input) {
-                it.second
-            }.map {
-                it.first
-            }
-        ).containsExactly(1, 2, 3, 4, 9)
+        assertThat(getKeys(expression)).containsExactly(1, 2, 3, 4, 9)
     }
 
     @Test
     fun compile_GivenOrNotAAsteriskVariableButAlsoNotEmpty() {
-        val input = "A|!A*"
-        val compile = testSubject.compile(input)
+        val expression = "A|!A*"
+        val compile = testSubject.compile(expression)
         assertThat(compile.invoke(setOfA)).isTrue
         assertThat(compile.invoke(setOfB)).isTrue
         assertThat(compile.invoke(setOfC)).isTrue
         assertThat(compile.invoke(setOfAAndB)).isTrue
         assertThat(compile.invoke(setOfEmpty)).isTrue
 
-        assertThat(
-            collection.flatMapFilterByExpression(input) {
-                it.second
-            }.map {
-                it.first
-            }
-        ).containsExactly(1, 2, 3, 4, 9)
+        assertThat(getKeys(expression)).containsExactly(1, 2, 3, 4, 9)
     }
 
     @Test
     fun compile_GivenAndNotVariable() {
-        val input = "A&!B"
-        val compile = testSubject.compile(input)
+        val expression = "A&!B"
+        val compile = testSubject.compile(expression)
         assertThat(compile.invoke(setOfA)).isTrue
         assertThat(compile.invoke(setOfB)).isFalse
         assertThat(compile.invoke(setOfC)).isFalse
         assertThat(compile.invoke(setOfAAndB)).isFalse
 
-        assertThat(
-            collection.flatMapFilterByExpression(input) {
-                it.second
-            }.map {
-                it.first
-            }
-        ).containsExactly(1)
+        assertThat(getKeys(expression)).containsExactly(1)
     }
 
     @Test
     fun compile_GivenAsteriskVariable() {
-        val input = "*"
-        val compile = testSubject.compile(input)
+        val expression = "*"
+        val compile = testSubject.compile(expression)
         assertThat(compile.invoke(setOfA)).isTrue
         assertThat(compile.invoke(setOfB)).isTrue
         assertThat(compile.invoke(setOfC)).isTrue
         assertThat(compile.invoke(setOfAAndB)).isTrue
 
-        assertThat(
-            collection.flatMapFilterByExpression(input) {
-                it.second
-            }.map {
-                it.first
-            }
-        ).containsExactly(1, 2, 3, 4, 5, 6, 7, 8, 9)
+        assertThat(getKeys(expression)).containsExactly(1, 2, 3, 4, 5, 6, 7, 8, 9)
     }
 
     @Test
     fun compile_GivenQuestionMarkVariable() {
-        val input = "?"
-        val compile = testSubject.compile(input)
+        val expression = "?"
+        val compile = testSubject.compile(expression)
         assertThat(compile.invoke(setOfA)).isTrue
         assertThat(compile.invoke(setOfB)).isTrue
         assertThat(compile.invoke(setOfC)).isTrue
         assertThat(compile.invoke(setOfAAndB)).isTrue
 
-        assertThat(
-            collection.flatMapFilterByExpression(input) {
-                it.second
-            }.map {
-                it.first
-            }
-        ).containsExactly(1, 2, 3, 4)
+        assertThat(getKeys(expression)).containsExactly(1, 2, 3, 4)
     }
 
     @Test
     fun compile_GivenTrueLiteralVariable() {
-        val input = "TRUE"
-        val compile = testSubject.compile(input)
+        val expression = "TRUE"
+        val compile = testSubject.compile(expression)
         assertThat(compile.invoke(setOfA)).isTrue
         assertThat(compile.invoke(setOfB)).isTrue
         assertThat(compile.invoke(setOfC)).isTrue
         assertThat(compile.invoke(setOfAAndB)).isTrue
 
-        assertThat(
-            collection.flatMapFilterByExpression(input) {
-                it.second
-            }.map {
-                it.first
-            }
-        ).containsExactly(1, 2, 3, 4, 5, 6, 7, 8, 9)
+        assertThat(getKeys(expression)).containsExactly(1, 2, 3, 4, 5, 6, 7, 8, 9)
     }
 
     @Test
     fun compile_GivenFalseLiteralVariable() {
-        val input = "FALSE"
-        val compile = testSubject.compile(input)
+        val expression = "FALSE"
+        val compile = testSubject.compile(expression)
         assertThat(compile.invoke(setOfA)).isFalse
         assertThat(compile.invoke(setOfB)).isFalse
         assertThat(compile.invoke(setOfC)).isFalse
         assertThat(compile.invoke(setOfAAndB)).isFalse
 
-        assertThat(
-            collection.flatMapFilterByExpression(input) {
-                it.second
-            }.map {
-                it.first
-            }
-        ).isEmpty()
+        assertThat(getKeys(expression)).isEmpty()
     }
 
     @Test
     fun compile_GivenAQuestionMarkVariable() {
-        val input = "A?"
-        val compile = testSubject.compile(input)
+        val expression = "A?"
+        val compile = testSubject.compile(expression)
         assertThat(compile.invoke(setOfA)).isFalse
         assertThat(compile.invoke(setOfB)).isFalse
         assertThat(compile.invoke(setOfC)).isFalse
@@ -537,30 +499,17 @@ internal class CompilerTest {
         assertThat(compile.invoke(setOfAC)).isTrue
         assertThat(compile.invoke(setOfAAndAB)).isTrue
 
-        assertThat(
-            collection.flatMapFilterByExpression(input) {
-                it.second
-            }.map {
-                it.first
-            }
-        ).containsExactly(5, 6, 7, 8)
+        assertThat(getKeys(expression)).containsExactly(5, 6, 7, 8)
     }
 
-    enum class TestEnum {
-        A, B, C
+    private fun getKeys(expression: String): List<Int> {
+        println(expression)
+        return collection.flatMapFilterByExpression(expression) {
+            it.second
+        }.map {
+            it.first
+        }
     }
-
-    data class TestClass(val value: String)
-
-    val OBJECT_A = TestClass("A")
-    val OBJECT_B = TestClass("B")
-    val OBJECT_C = TestClass("C")
-
-    val objectList = listOf(OBJECT_A, OBJECT_B, OBJECT_C)
-    val objectArray = arrayOf(OBJECT_A, OBJECT_B, OBJECT_C)
-
-    val stringList = listOf("A", "B", "C")
-    val stringArray = arrayOf("A", "B", "C")
 
     @Test
     fun compile_GivenEnum() {

@@ -10,8 +10,8 @@ object MapStringCompiler : Compiler<String>() {
     ): Boolean =
         control == candidate
 
-    override fun matchesRegex(regexString: String, candidate: String): Boolean =
-        regexString.toRegex().matches(candidate)
+    override fun matchesRegex(regex: Regex, candidate: String): Boolean =
+        regex.matches(candidate)
 }
 
 object FlatMapCollectionStringCompiler : Compiler<Collection<String>>() {
@@ -21,11 +21,9 @@ object FlatMapCollectionStringCompiler : Compiler<Collection<String>>() {
     ): Boolean =
         control in candidate
 
-    override fun matchesRegex(regexString: String, candidate: Collection<String>): Boolean =
-        regexString.toRegex().let { regex ->
-            candidate.any {
-                regex.matches(it)
-            }
+    override fun matchesRegex(regex: Regex, candidate: Collection<String>): Boolean =
+        candidate.any {
+            regex.matches(it)
         }
 }
 
@@ -36,11 +34,9 @@ object FlatMapSequenceStringCompiler : Compiler<Sequence<String>>() {
     ): Boolean =
         control in candidate
 
-    override fun matchesRegex(regexString: String, candidate: Sequence<String>): Boolean =
-        regexString.toRegex().let { regex ->
-            candidate.any {
-                regex.matches(it)
-            }
+    override fun matchesRegex(regex: Regex, candidate: Sequence<String>): Boolean =
+        candidate.any {
+            regex.matches(it)
         }
 }
 
@@ -64,6 +60,11 @@ abstract class Compiler<T> {
             override fun visitGlobExpression(ctx: DrainerParser.GlobExpressionContext): (T) -> Boolean =
                 {
                     matchesGlob(ctx.text, it)
+                }
+
+            override fun visitRegexExpression(ctx: DrainerParser.RegexExpressionContext): (T) -> Boolean =
+                {
+                    matchesRegex(ctx.text, it)
                 }
 
             override fun visitNotExpression(ctx: DrainerParser.NotExpressionContext): (T) -> Boolean =
@@ -98,8 +99,14 @@ abstract class Compiler<T> {
     ): Boolean =
         matchesRegex(globToRegEx(globString), candidate)
 
-    abstract fun matchesRegex(
+    fun matchesRegex(
         regexString: String,
+        candidate: T
+    ): Boolean =
+        matchesRegex(regexString.toRegex(), candidate)
+
+    abstract fun matchesRegex(
+        regex: Regex,
         candidate: T
     ): Boolean
 
@@ -108,19 +115,15 @@ abstract class Compiler<T> {
         candidate: T
     ): Boolean
 
-    fun globToRegEx(glob: String): String {
-        var out = "^"
-        glob.forEach { c ->
-            out += when (c) {
+    private fun globToRegEx(glob: String): Regex =
+        (glob.foldIndexed("^") { _, acc, next ->
+            acc + when (next) {
                 '*' -> ".*"
                 '?' -> '.'
                 '.' -> "\\."
-                else -> c
+                else -> next
             }
-        }
-        out += '$'
-        return out
-    }
+        } + '$').toRegex()
 
     fun compile(expression: String): (T) -> Boolean =
         if (expression.isNotBlank()) {
