@@ -149,6 +149,31 @@ internal class CompilerTest {
                     expression.invoke(first, second)
                 }
             }.flatten()
+
+        fun assertValues(expression: String, vararg index: Int) {
+            val compile = testSubject.compile(expression)
+            collection.forEach{pair ->
+                assertThat(compile.invoke(pair.second)).apply {
+                    if (pair.first in index) {
+                        isTrue()
+                    } else {
+                        isFalse()
+                    }
+                }
+            }
+            assertThat(getKeys(expression)).containsExactlyElementsOf(index.toList())
+        }
+
+        private fun getKeys(expression: String): List<Int> {
+//        println(expression)
+            return collection.flatMapFilterByExpression(expression) {
+                it.second
+            }.map {
+                it.first
+            }
+        }
+
+
     }
 
     @ParameterizedTest
@@ -183,7 +208,7 @@ internal class CompilerTest {
         objectC: String,
         expression: String?
     ): List<String> {
-        println(expression)
+//        println(expression)
         return listOf(objectA, objectB, objectC).mapFilterByExpression(expression, emptyMap()) { it }
     }
 
@@ -212,29 +237,6 @@ internal class CompilerTest {
         assertValues("TRUE", 1, 2, 3, 4, 5, 6, 7, 8, 9)
         assertValues("FALSE")
         assertValues("A?", 5, 6, 7, 8)
-    }
-
-    private fun assertValues(expression: String, vararg index: Int) {
-        val compile = testSubject.compile(expression)
-        collection.forEach{pair ->
-            assertThat(compile.invoke(pair.second)).apply {
-                if (pair.first in index) {
-                    isTrue()
-                } else {
-                    isFalse()
-                }
-            }
-        }
-        assertThat(getKeys(expression)).containsExactlyElementsOf(index.toList())
-    }
-
-    private fun getKeys(expression: String): List<Int> {
-//        println(expression)
-        return collection.flatMapFilterByExpression(expression) {
-            it.second
-        }.map {
-            it.first
-        }
     }
 
     @Test
