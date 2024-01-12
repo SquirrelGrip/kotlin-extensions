@@ -264,8 +264,6 @@ class JsonSchemaExtensionTest {
                 }.build()
             ).toPrettyString()
         ).isEqualTo(
-//              "${"\$"}id": "https://example.com/person.schema.json",
-//              "title": "Person",
             """
             {
               "${"\$"}schema": "https://json-schema.org/draft/2020-12/schema",

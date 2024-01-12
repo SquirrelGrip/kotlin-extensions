@@ -22,6 +22,7 @@
         <module>kotlin-extensions-format</module>
         <module>kotlin-extensions-javaprops</module>
         <module>kotlin-extensions-json</module>
+        <module>kotlin-extensions-jsonschema</module>
         <module>kotlin-extensions-jvm</module>
         <module>kotlin-extensions-protobuf</module>
         <module>kotlin-extensions-xml</module>
