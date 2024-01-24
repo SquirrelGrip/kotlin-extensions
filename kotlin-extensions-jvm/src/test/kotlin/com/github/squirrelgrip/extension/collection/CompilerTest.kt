@@ -9,7 +9,7 @@ import java.util.stream.Stream
 
 internal class CompilerTest {
     companion object {
-        val testSubject = FlatMapCollectionStringCompiler
+        val testSubject = CollectionStringCompiler
 
         val setOfA = setOf("A")
         val setOfB = setOf("B")
@@ -300,6 +300,18 @@ internal class CompilerTest {
     }
 
     @Test
+    fun stringCollectionPartition() {
+        assertThat(stringList.partitionByExpression("A")).isEqualTo(listOf("A") to listOf("B", "C"))
+        assertThat(stringList.partitionByExpression("B")).isEqualTo(listOf("B") to listOf("A", "C"))
+        assertThat(stringList.partitionByExpression("C")).isEqualTo(listOf("C") to listOf("A", "B"))
+        assertThat(stringList.partitionByExpression("!A")).isEqualTo(listOf("B", "C") to listOf("A"))
+        assertThat(stringList.partitionByExpression("")).isEqualTo(emptyList<String>() to listOf("A", "B", "C"))
+        assertThat(stringList.partitionByExpression(null)).isEqualTo(listOf("A", "B", "C") to emptyList<String>())
+        assertThat(stringList.partitionByExpression("ALL", mapOf("ALL" to "A|B|C"))).isEqualTo(listOf("A", "B", "C") to emptyList<String>())
+        assertThat(stringList.partitionByExpression("AB", mapOf("AB" to "A|B"))).isEqualTo(listOf("A", "B") to listOf("C"))
+    }
+
+    @Test
     fun stringArrayFilter() {
         assertThat(stringArray.filterByExpression("A")).containsExactly("A")
         assertThat(stringArray.filterByExpression("B")).containsExactly("B")
@@ -322,3 +334,4 @@ internal class CompilerTest {
         assertThat(stringList.asSequence().filterByExpression("ALL", mapOf("ALL" to "A|B|C")).toList()).containsAll(stringList)
     }
 }
+
