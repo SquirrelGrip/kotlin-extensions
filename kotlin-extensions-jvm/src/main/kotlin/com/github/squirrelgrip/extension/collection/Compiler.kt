@@ -20,7 +20,10 @@ object CollectionStringCompiler : Compiler<Collection<String>>() {
     ): Boolean =
         control in candidate
 
-    override fun matchesRegex(regex: Regex, candidate: Collection<String>): Boolean =
+    override fun matchesRegex(
+        regex: Regex,
+        candidate: Collection<String>
+    ): Boolean =
         candidate.any {
             regex.matches(it)
         }
@@ -33,7 +36,10 @@ object SequenceStringCompiler : Compiler<Sequence<String>>() {
     ): Boolean =
         control in candidate
 
-    override fun matchesRegex(regex: Regex, candidate: Sequence<String>): Boolean =
+    override fun matchesRegex(
+        regex: Regex,
+        candidate: Sequence<String>
+    ): Boolean =
         candidate.any {
             regex.matches(it)
         }
@@ -152,82 +158,6 @@ abstract class Compiler<T> {
         } else {
             { false }
         }
-
-    fun <V> filter(
-        array: Array<V>,
-        expression: String?,
-        aliases: Map<String, String> = emptyMap(),
-        transform: (V) -> T
-    ): List<V> =
-        prepare(expression, aliases)?.let { predicate ->
-            array.filter {
-                predicate.invoke(transform.invoke(it))
-            }
-        } ?: array.toList()
-
-    fun <V> filter(
-        collection: Collection<V>,
-        expression: String?,
-        aliases: Map<String, String> = emptyMap(),
-        transform: (V) -> T
-    ): List<V> =
-        prepare(expression, aliases)?.let { predicate ->
-            collection.filter {
-                predicate.invoke(transform.invoke(it))
-            }
-        } ?: collection.toList()
-
-    fun <V> filter(
-        sequence: Sequence<V>,
-        expression: String?,
-        aliases: Map<String, String> = emptyMap(),
-        transform: (V) -> T
-    ): Sequence<V> =
-        prepare(expression, aliases)?.let { predicate ->
-            sequence.filter {
-                predicate.invoke(transform.invoke(it))
-            }
-        } ?: sequence
-
-    fun <V> partition(
-        array: Array<V>,
-        expression: String?,
-        aliases: Map<String, String> = emptyMap(),
-        transform: (V) -> T
-    ): Pair<List<V>, List<V>> =
-        prepare(expression, aliases)?.let { predicate ->
-            array.partition {
-                predicate.invoke(transform.invoke(it))
-            }
-        } ?: (array.toList() to emptyList())
-
-    fun <V> partition(
-        collection: Collection<V>,
-        expression: String?,
-        aliases: Map<String, String> = emptyMap(),
-        transform: (V) -> T
-    ): Pair<List<V>, List<V>> {
-        val predicate = prepare(expression, aliases)
-        if (predicate != null) {
-            collection.partition {
-                predicate.invoke(transform.invoke(it))
-            }
-        } else {
-            collection.toList() to emptyList()
-        }
-    }
-
-    fun <V> partition(
-        sequence: Sequence<V>,
-        expression: String?,
-        aliases: Map<String, String> = emptyMap(),
-        transform: (V) -> T
-    ): Pair<List<V>, List<V>> =
-        prepare(expression, aliases)?.let { predicate ->
-            sequence.partition {
-                predicate.invoke(transform.invoke(it))
-            }
-        } ?: (sequence.toList() to emptyList())
 
     private fun prepare(
         expression: String?,

@@ -1,10 +1,13 @@
 package com.github.squirrelgrip.extension.collection
 
 import org.assertj.core.api.Assertions.assertThat
+import org.assertj.core.api.Assertions.assertThatExceptionOfType
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.assertThrows
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.Arguments
 import org.junit.jupiter.params.provider.MethodSource
+import java.util.*
 import java.util.stream.Stream
 
 internal class CompilerTest {
@@ -33,21 +36,24 @@ internal class CompilerTest {
             9 to setOfEmpty,
         )
 
+
+        data class TestClass(val value: String)
+
+        private val OBJECT_A = TestClass("A")
+        private val OBJECT_B = TestClass("B")
+        private val OBJECT_C = TestClass("C")
+
+        val objectList = listOf(OBJECT_A, OBJECT_B, OBJECT_C)
+        val objectArray = arrayOf(OBJECT_A, OBJECT_B, OBJECT_C)
+        val objectSequence = sequenceOf(OBJECT_A, OBJECT_B, OBJECT_C)
+
         enum class TestEnum {
             A, B, C
         }
 
-        data class TestClass(val value: String)
-
-        val OBJECT_A = TestClass("A")
-        val OBJECT_B = TestClass("B")
-        val OBJECT_C = TestClass("C")
-
-        val objectList = listOf(OBJECT_A, OBJECT_B, OBJECT_C)
-        val objectArray = arrayOf(OBJECT_A, OBJECT_B, OBJECT_C)
-
         val stringList = listOf("A", "B", "C")
         val stringArray = arrayOf("A", "B", "C")
+        val stringSequence = sequenceOf("A", "B", "C")
 
         @JvmStatic
         fun compile(): Stream<Arguments> =
@@ -139,6 +145,152 @@ internal class CompilerTest {
                 Arguments.of(it)
             }.stream()
 
+        @JvmStatic
+        fun expressionTestEnum(): Stream<Arguments> =
+            listOf(
+                Arguments.of("A", mapOf("X" to "A|B"), listOf(TestEnum.A)),
+                Arguments.of("(A)", mapOf("X" to "A|B"), listOf(TestEnum.A)),
+                Arguments.of("!A", mapOf("X" to "A|B"), listOf(TestEnum.B, TestEnum.C)),
+                Arguments.of("!(A)", mapOf("X" to "A|B"), listOf(TestEnum.B, TestEnum.C)),
+                Arguments.of("!A|A", mapOf("X" to "A|B"), listOf(TestEnum.A, TestEnum.B, TestEnum.C)),
+                Arguments.of("!A&A", mapOf("X" to "A|B"), emptyList<TestEnum>()),
+                Arguments.of("(!A|B)|A", mapOf("X" to "A|B"), listOf(TestEnum.A, TestEnum.B, TestEnum.C)),
+                Arguments.of("X", mapOf("X" to "A|B"), listOf(TestEnum.A, TestEnum.B)),
+                Arguments.of("!X", mapOf("X" to "A|B"), listOf(TestEnum.C)),
+                Arguments.of("ALL", mapOf("ALL" to "A|B|C"), listOf(TestEnum.A, TestEnum.B, TestEnum.C)),
+                Arguments.of("!ALL", mapOf("ALL" to "A|B|C"), emptyList<TestEnum>()),
+                Arguments.of("", mapOf("ALL" to "A|B|C"), emptyList<TestEnum>()),
+                Arguments.of(null, mapOf("ALL" to "A|B|C"), listOf(TestEnum.A, TestEnum.B, TestEnum.C)),
+
+                Arguments.of("A", emptyMap<String, String>(), listOf(TestEnum.A)),
+                Arguments.of("(A)", emptyMap<String, String>(), listOf(TestEnum.A)),
+                Arguments.of("!A", emptyMap<String, String>(), listOf(TestEnum.B, TestEnum.C)),
+                Arguments.of("!(A)", emptyMap<String, String>(), listOf(TestEnum.B, TestEnum.C)),
+                Arguments.of("!A|A", emptyMap<String, String>(), listOf(TestEnum.A, TestEnum.B, TestEnum.C)),
+                Arguments.of("!A&A", emptyMap<String, String>(), emptyList<TestEnum>()),
+                Arguments.of("(!A|B)|A", emptyMap<String, String>(), listOf(TestEnum.A, TestEnum.B, TestEnum.C)),
+                Arguments.of("X", emptyMap<String, String>(), emptyList<TestEnum>()),
+                Arguments.of("!X", emptyMap<String, String>(), listOf(TestEnum.A, TestEnum.B, TestEnum.C)),
+                Arguments.of("ALL", emptyMap<String, String>(), emptyList<TestEnum>()),
+                Arguments.of(null, emptyMap<String, String>(), listOf(TestEnum.A, TestEnum.B, TestEnum.C)),
+
+                ).stream()
+
+        @JvmStatic
+        fun expressionString(): Stream<Arguments> =
+            listOf(
+                Arguments.of("A", mapOf("X" to "A|B"), listOf("A")),
+                Arguments.of("(A)", mapOf("X" to "A|B"), listOf("A")),
+                Arguments.of("!A", mapOf("X" to "A|B"), listOf("B", "C")),
+                Arguments.of("!(A)", mapOf("X" to "A|B"), listOf("B", "C")),
+                Arguments.of("!A|A", mapOf("X" to "A|B"), listOf("A", "B", "C")),
+                Arguments.of("!A&A", mapOf("X" to "A|B"), emptyList<String>()),
+                Arguments.of("(!A|B)|A", mapOf("X" to "A|B"), listOf("A", "B", "C")),
+                Arguments.of("X", mapOf("X" to "A|B"), listOf("A", "B")),
+                Arguments.of("!X", mapOf("X" to "A|B"), listOf("C")),
+                Arguments.of("ALL", mapOf("ALL" to "A|B|C"), listOf("A", "B", "C")),
+                Arguments.of("", mapOf("ALL" to "A|B|C"), emptyList<String>()),
+                Arguments.of(null, mapOf("ALL" to "A|B|C"), listOf("A", "B", "C")),
+
+                Arguments.of("A", emptyMap<String, String>(), listOf("A")),
+                Arguments.of("(A)", emptyMap<String, String>(), listOf("A")),
+                Arguments.of("!A", emptyMap<String, String>(), listOf("B", "C")),
+                Arguments.of("!(A)", emptyMap<String, String>(), listOf("B", "C")),
+                Arguments.of("!A|A", emptyMap<String, String>(), listOf("A", "B", "C")),
+                Arguments.of("!A&A", emptyMap<String, String>(), emptyList<String>()),
+                Arguments.of("(!A|B)|A", emptyMap<String, String>(), listOf("A", "B", "C")),
+                Arguments.of("X", emptyMap<String, String>(), emptyList<String>()),
+                Arguments.of("!X", emptyMap<String, String>(), listOf("A", "B", "C")),
+                Arguments.of("ALL", emptyMap<String, String>(), emptyList<String>()),
+                Arguments.of("", emptyMap<String, String>(), emptyList<String>()),
+                Arguments.of(null, emptyMap<String, String>(), listOf("A", "B", "C")),
+
+                ).stream()
+
+        @JvmStatic
+        fun expressionObject(): Stream<Arguments> =
+            listOf(
+                Arguments.of("A", mapOf("X" to "A|B"), listOf(OBJECT_A)),
+                Arguments.of("(A)", mapOf("X" to "A|B"), listOf(OBJECT_A)),
+                Arguments.of("!A", mapOf("X" to "A|B"), listOf(OBJECT_B, OBJECT_C)),
+                Arguments.of("!(A)", mapOf("X" to "A|B"), listOf(OBJECT_B, OBJECT_C)),
+                Arguments.of("!A|A", mapOf("X" to "A|B"), listOf(OBJECT_A, OBJECT_B, OBJECT_C)),
+                Arguments.of("!A&A", mapOf("X" to "A|B"), emptyList<TestClass>()),
+                Arguments.of("(!A|B)|A", mapOf("X" to "A|B"), listOf(OBJECT_A, OBJECT_B, OBJECT_C)),
+                Arguments.of("X", mapOf("X" to "A|B"), listOf(OBJECT_A, OBJECT_B)),
+                Arguments.of("!X", mapOf("X" to "A|B"), listOf(OBJECT_C)),
+                Arguments.of("ALL", mapOf("ALL" to "A|B|C"), listOf(OBJECT_A, OBJECT_B, OBJECT_C)),
+                Arguments.of("", mapOf("ALL" to "A|B|C"), emptyList<TestClass>()),
+                Arguments.of(null, mapOf("ALL" to "A|B|C"), listOf(OBJECT_A, OBJECT_B, OBJECT_C)),
+
+                Arguments.of("A", emptyMap<String, String>(), listOf(OBJECT_A)),
+                Arguments.of("(A)", emptyMap<String, String>(), listOf(OBJECT_A)),
+                Arguments.of("!A", emptyMap<String, String>(), listOf(OBJECT_B, OBJECT_C)),
+                Arguments.of("!(A)", emptyMap<String, String>(), listOf(OBJECT_B, OBJECT_C)),
+                Arguments.of("!A|A", emptyMap<String, String>(), listOf(OBJECT_A, OBJECT_B, OBJECT_C)),
+                Arguments.of("!A&A", emptyMap<String, String>(), emptyList<TestClass>()),
+                Arguments.of("(!A|B)|A", emptyMap<String, String>(), listOf(OBJECT_A, OBJECT_B, OBJECT_C)),
+                Arguments.of("X", emptyMap<String, String>(), emptyList<TestClass>()),
+                Arguments.of("!X", emptyMap<String, String>(), listOf(OBJECT_A, OBJECT_B, OBJECT_C)),
+                Arguments.of("ALL", emptyMap<String, String>(), emptyList<TestClass>()),
+                Arguments.of("", emptyMap<String, String>(), emptyList<TestEnum>()),
+                Arguments.of(null, emptyMap<String, String>(), listOf(OBJECT_A, OBJECT_B, OBJECT_C)),
+            ).stream()
+
+        @JvmStatic
+        fun expressionFlatMapObject(): Stream<Arguments> =
+            listOf(
+                Arguments.of("A", mapOf("X" to "AA|BB"), listOf(OBJECT_A)),
+                Arguments.of("(A)", mapOf("X" to "AA|BB"), listOf(OBJECT_A)),
+                Arguments.of("!A", mapOf("X" to "AA|BB"), listOf(OBJECT_B, OBJECT_C)),
+                Arguments.of("!(A)", mapOf("X" to "AA|BB"), listOf(OBJECT_B, OBJECT_C)),
+                Arguments.of("!A|A", mapOf("X" to "AABB"), listOf(OBJECT_A, OBJECT_B, OBJECT_C)),
+                Arguments.of("!A&A", mapOf("X" to "AA|BB"), emptyList<TestClass>()),
+                Arguments.of("(!A|B)|A", mapOf("X" to "AA|BB"), listOf(OBJECT_A, OBJECT_B, OBJECT_C)),
+                Arguments.of("X", mapOf("X" to "AA|BB"), listOf(OBJECT_A, OBJECT_B)),
+                Arguments.of("!X", mapOf("X" to "AA|BB"), listOf(OBJECT_C)),
+                Arguments.of("ALL", mapOf("ALL" to "AA|BB|CC"), listOf(OBJECT_A, OBJECT_B, OBJECT_C)),
+                Arguments.of("", mapOf("ALL" to "AA|BB|CC"), emptyList<TestClass>()),
+                Arguments.of(null, mapOf("ALL" to "AA|BB|CC"), listOf(OBJECT_A, OBJECT_B, OBJECT_C)),
+
+                Arguments.of("AA", mapOf("X" to "AA|BB"), listOf(OBJECT_A)),
+                Arguments.of("(AA)", mapOf("X" to "AA|BB"), listOf(OBJECT_A)),
+                Arguments.of("!AA", mapOf("X" to "AA|BB"), listOf(OBJECT_B, OBJECT_C)),
+                Arguments.of("!(AA)", mapOf("X" to "AA|BB"), listOf(OBJECT_B, OBJECT_C)),
+                Arguments.of("!AA|AA", mapOf("X" to "AA|BB"), listOf(OBJECT_A, OBJECT_B, OBJECT_C)),
+                Arguments.of("!AA&AA", mapOf("X" to "AA|BB"), emptyList<TestClass>()),
+                Arguments.of("(!AA|BB)|AA", mapOf("X" to "AA|BB"), listOf(OBJECT_A, OBJECT_B, OBJECT_C)),
+                Arguments.of("X", mapOf("X" to "AA|BB"), listOf(OBJECT_A, OBJECT_B)),
+                Arguments.of("!X", mapOf("X" to "AA|BB"), listOf(OBJECT_C)),
+                Arguments.of("ALL", mapOf("ALL" to "AA|BB|CC"), listOf(OBJECT_A, OBJECT_B, OBJECT_C)),
+                Arguments.of("", mapOf("ALL" to "AA|BB|CC"), emptyList<TestClass>()),
+                Arguments.of(null, mapOf("ALL" to "AA|BB|CC"), listOf(OBJECT_A, OBJECT_B, OBJECT_C)),
+
+                Arguments.of("A", emptyMap<String, String>(), listOf(OBJECT_A)),
+                Arguments.of("(A)", emptyMap<String, String>(), listOf(OBJECT_A)),
+                Arguments.of("!A", emptyMap<String, String>(), listOf(OBJECT_B, OBJECT_C)),
+                Arguments.of("!(A)", emptyMap<String, String>(), listOf(OBJECT_B, OBJECT_C)),
+                Arguments.of("!A|A", emptyMap<String, String>(), listOf(OBJECT_A, OBJECT_B, OBJECT_C)),
+                Arguments.of("(!A|B)|A", emptyMap<String, String>(), listOf(OBJECT_A, OBJECT_B, OBJECT_C)),
+                Arguments.of("X", emptyMap<String, String>(), emptyList<TestClass>()),
+                Arguments.of("!X", emptyMap<String, String>(), listOf(OBJECT_A, OBJECT_B, OBJECT_C)),
+                Arguments.of("ALL", emptyMap<String, String>(), emptyList<TestClass>()),
+                Arguments.of("", emptyMap<String, String>(), emptyList<TestEnum>()),
+                Arguments.of(null, emptyMap<String, String>(), listOf(OBJECT_A, OBJECT_B, OBJECT_C)),
+
+                Arguments.of("AA", emptyMap<String, String>(), listOf(OBJECT_A)),
+                Arguments.of("(AA)", emptyMap<String, String>(), listOf(OBJECT_A)),
+                Arguments.of("!AA", emptyMap<String, String>(), listOf(OBJECT_B, OBJECT_C)),
+                Arguments.of("!(AA)", emptyMap<String, String>(), listOf(OBJECT_B, OBJECT_C)),
+                Arguments.of("!AA|AA", emptyMap<String, String>(), listOf(OBJECT_A, OBJECT_B, OBJECT_C)),
+                Arguments.of("(!AA|BB)|AA", emptyMap<String, String>(), listOf(OBJECT_A, OBJECT_B, OBJECT_C)),
+                Arguments.of("X", emptyMap<String, String>(), emptyList<TestClass>()),
+                Arguments.of("!X", emptyMap<String, String>(), listOf(OBJECT_A, OBJECT_B, OBJECT_C)),
+                Arguments.of("ALL", emptyMap<String, String>(), emptyList<TestClass>()),
+                Arguments.of("", emptyMap<String, String>(), emptyList<TestEnum>()),
+                Arguments.of(null, emptyMap<String, String>(), listOf(OBJECT_A, OBJECT_B, OBJECT_C)),
+            ).stream()
+
         private fun generateArguments(
             list1: List<String>,
             list2: List<String>,
@@ -152,7 +304,7 @@ internal class CompilerTest {
 
         fun assertValues(expression: String, vararg index: Int) {
             val compile = testSubject.compile(expression)
-            collection.forEach{pair ->
+            collection.forEach { pair ->
                 assertThat(compile.invoke(pair.second)).apply {
                     if (pair.first in index) {
                         isTrue()
@@ -165,8 +317,7 @@ internal class CompilerTest {
         }
 
         private fun getKeys(expression: String): List<Int> {
-//        println(expression)
-            return collection.flatMapFilterByExpression(expression) {
+            return collection.filterFlatMapByExpression(expression) {
                 it.second
             }.map {
                 it.first
@@ -196,7 +347,6 @@ internal class CompilerTest {
     @ParameterizedTest
     @MethodSource
     fun validExpression(expression: String) {
-//        println(expression)
         testSubject.compile(expression)
     }
 
@@ -208,8 +358,7 @@ internal class CompilerTest {
         objectC: String,
         expression: String?
     ): List<String> {
-//        println(expression)
-        return listOf(objectA, objectB, objectC).mapFilterByExpression(expression, emptyMap()) { it }
+        return listOf(objectA, objectB, objectC).filterMapByExpression(expression, emptyMap()) { it }
     }
 
     @Test
@@ -239,99 +388,764 @@ internal class CompilerTest {
         assertValues("A?", 5, 6, 7, 8)
     }
 
-    @Test
-    fun compile_GivenEnum() {
-        assertThat("A".filterByExpression<TestEnum>()).containsExactly(TestEnum.A)
-        assertThat("(A)".filterByExpression<TestEnum>()).containsExactly(TestEnum.A)
-        assertThat("!A".filterByExpression<TestEnum>()).containsExactly(TestEnum.B, TestEnum.C)
-        assertThat("!(A)".filterByExpression<TestEnum>()).containsExactly(TestEnum.B, TestEnum.C)
-        assertThat("!A|A".filterByExpression<TestEnum>()).containsExactly(TestEnum.A, TestEnum.B, TestEnum.C)
-        assertThat("!A&A".filterByExpression<TestEnum>()).isEmpty()
-        assertThat("(!A|B)|A".filterByExpression<TestEnum>()).containsExactly(TestEnum.A, TestEnum.B, TestEnum.C)
-        assertThat("X".filterByExpression<TestEnum>()).isEmpty()
-        assertThat("!X".filterByExpression<TestEnum>()).containsExactly(TestEnum.A, TestEnum.B, TestEnum.C)
+    @ParameterizedTest
+    @MethodSource
+    fun expressionTestEnum(expression: String?, alias: Map<String, String>, expected: List<TestEnum>) {
+        assertThat(expression.allByExpression<TestEnum>(alias)).isEqualTo(expected.size == TestEnum.entries.size)
+        assertThat(expression.anyByExpression<TestEnum>(alias)).isEqualTo(expected.isNotEmpty())
+        assertThat(expression.countByExpression<TestEnum>(alias)).isEqualTo(expected.size)
+        assertThat(expression.filterByExpression<TestEnum>(alias)).containsExactlyElementsOf(expected)
+        assertThat(expression.filterNotByExpression<TestEnum>(alias)).containsExactlyElementsOf(
+            EnumSet.complementOf(
+                expected.toEnumSet()
+            )
+        )
+        assertThat(expression.findByExpression<TestEnum>(alias)).isEqualTo(expected.firstOrNull())
+        assertThat(expression.findLastByExpression<TestEnum>(alias)).isEqualTo(expected.lastOrNull())
+        if (expected.isEmpty()) {
+            assertThrows<NoSuchElementException> {
+                expression.firstByExpression<TestEnum>(alias)
+            }
+        } else {
+            assertThat(expression.firstByExpression<TestEnum>(alias)).isEqualTo(expected.first())
+        }
+        assertThat(expression.firstOrNullByExpression<TestEnum>(alias)).isEqualTo(expected.firstOrNull())
+        assertThat(expression.indexOfFirstByExpression<TestEnum>(alias)).isEqualTo(TestEnum.entries.indexOf(expected.firstOrNull()))
+        assertThat(expression.indexOfLastByExpression<TestEnum>(alias)).isEqualTo(TestEnum.entries.indexOf(expected.lastOrNull()))
+        if (expected.isEmpty()) {
+            assertThrows<NoSuchElementException> {
+                expression.lastByExpression<TestEnum>(alias)
+            }
+        } else {
+            assertThat(expression.lastByExpression<TestEnum>(alias)).isEqualTo(expected.last())
+        }
+        assertThat(expression.lastOrNullByExpression<TestEnum>(alias)).isEqualTo(expected.lastOrNull())
+        assertThat(expression.partitionByExpression<TestEnum>(alias)).isEqualTo(
+            expected to EnumSet.complementOf(
+                expected.toEnumSet()
+            ).toList()
+        )
     }
 
-    @Test
-    fun compile_GivenEnumWithExtraExpressions() {
-        assertThat("A".filterByExpression<TestEnum>(mapOf("X" to "A|B"))).containsExactly(TestEnum.A)
-        assertThat("(A)".filterByExpression<TestEnum>(mapOf("X" to "A|B"))).containsExactly(TestEnum.A)
-        assertThat("!A".filterByExpression<TestEnum>(mapOf("X" to "A|B"))).containsExactly(TestEnum.B, TestEnum.C)
-        assertThat("!(A)".filterByExpression<TestEnum>(mapOf("X" to "A|B"))).containsExactly(TestEnum.B, TestEnum.C)
-        assertThat("!A|A".filterByExpression<TestEnum>(mapOf("X" to "A|B"))).containsExactly(TestEnum.A, TestEnum.B, TestEnum.C)
-        assertThat("!A&A".filterByExpression<TestEnum>(mapOf("X" to "A|B"))).isEmpty()
-        assertThat("(!A|B)|A".filterByExpression<TestEnum>(mapOf("X" to "A|B"))).containsExactly(TestEnum.A, TestEnum.B, TestEnum.C)
-        assertThat("X".filterByExpression<TestEnum>(mapOf("X" to "A|B"))).containsExactly(TestEnum.A, TestEnum.B)
-        assertThat("!X".filterByExpression<TestEnum>(mapOf("X" to "A|B"))).containsExactly(TestEnum.C)
-        assertThat("ALL".filterByExpression<TestEnum>(mapOf("ALL" to "A|B|C"))).containsExactly(TestEnum.A, TestEnum.B, TestEnum.C)
+    @ParameterizedTest
+    @MethodSource("expressionString")
+    fun expressionStringList(expression: String?, alias: Map<String, String>, expected: List<String>) {
+        assertThat(stringList.allByExpression(expression, alias)).isEqualTo(expected.size == stringList.size)
+        assertThat(stringList.anyByExpression(expression, alias)).isEqualTo(expected.isNotEmpty())
+        assertThat(stringList.countByExpression(expression, alias)).isEqualTo(expected.size)
+        assertThat(stringList.filterByExpression(expression, alias)).containsExactlyElementsOf(expected)
+        assertThat(
+            stringList.filterNotByExpression(
+                expression,
+                alias
+            )
+        ).containsExactlyElementsOf(stringList - expected.toSet())
+        assertThat(stringList.findByExpression(expression, alias)).isEqualTo(expected.firstOrNull())
+        assertThat(stringList.findLastByExpression(expression, alias)).isEqualTo(expected.lastOrNull())
+        if (expected.isEmpty()) {
+            assertThrows<NoSuchElementException> {
+                stringList.firstByExpression(expression, alias)
+            }
+        } else {
+            assertThat(stringList.firstByExpression(expression, alias)).isEqualTo(expected.first())
+        }
+        assertThat(stringList.firstOrNullByExpression(expression, alias)).isEqualTo(expected.firstOrNull())
+        assertThat(
+            stringList.indexOfFirstByExpression(
+                expression,
+                alias
+            )
+        ).isEqualTo(stringList.indexOf(expected.firstOrNull()))
+        assertThat(
+            stringList.indexOfLastByExpression(
+                expression,
+                alias
+            )
+        ).isEqualTo(stringList.indexOf(expected.lastOrNull()))
+        if (expected.isEmpty()) {
+            assertThrows<NoSuchElementException> {
+                stringList.lastByExpression(expression, alias)
+            }
+        } else {
+            assertThat(stringList.lastByExpression(expression, alias)).isEqualTo(expected.last())
+        }
+        assertThat(stringList.lastOrNullByExpression(expression, alias)).isEqualTo(expected.lastOrNull())
+        assertThat(
+            stringList.partitionByExpression(
+                expression,
+                alias
+            )
+        ).isEqualTo(expected to (stringList - expected.toSet()))
     }
 
-    @Test
-    fun collectionFilter() {
-        assertThat(objectList.mapFilterByExpression("A") { it.value }).containsExactly(OBJECT_A)
-        assertThat(objectList.mapFilterByExpression("B") { it.value }).containsExactly(OBJECT_B)
-        assertThat(objectList.mapFilterByExpression("C") { it.value }).containsExactly(OBJECT_C)
-        assertThat(objectList.mapFilterByExpression("!A") { it.value }).containsExactly(OBJECT_B, OBJECT_C)
-        assertThat(objectList.mapFilterByExpression("") { it.value }).isEmpty()
-        assertThat(objectList.mapFilterByExpression(null) { it.value }).containsAll(objectList)
-        assertThat(objectList.mapFilterByExpression("ALL", mapOf("ALL" to "A|B|C")) { it.value }).containsAll(objectList)
+    @ParameterizedTest
+    @MethodSource("expressionString")
+    fun expressionStringSequence(expression: String?, alias: Map<String, String>, expected: List<String>) {
+        assertThat(
+            stringSequence.allByExpression(
+                expression,
+                alias
+            )
+        ).isEqualTo(expected.size == stringSequence.toList().size)
+        assertThat(stringSequence.anyByExpression(expression, alias)).isEqualTo(expected.isNotEmpty())
+        assertThat(stringSequence.countByExpression(expression, alias)).isEqualTo(expected.size)
+        assertThat(stringSequence.filterByExpression(expression, alias).toList()).containsExactlyElementsOf(expected)
+        assertThat(stringSequence.filterNotByExpression(expression, alias).toList()).containsExactlyElementsOf(
+            stringSequence.toList() - expected.toSet()
+        )
+        assertThat(stringSequence.findByExpression(expression, alias)).isEqualTo(expected.firstOrNull())
+        assertThat(stringSequence.findLastByExpression(expression, alias)).isEqualTo(expected.lastOrNull())
+        if (expected.isEmpty()) {
+            assertThrows<NoSuchElementException> {
+                stringSequence.firstByExpression(expression, alias)
+            }
+        } else {
+            assertThat(stringSequence.firstByExpression(expression, alias)).isEqualTo(expected.first())
+        }
+        assertThat(stringSequence.firstOrNullByExpression(expression, alias)).isEqualTo(expected.firstOrNull())
+        assertThat(
+            stringSequence.indexOfFirstByExpression(
+                expression,
+                alias
+            )
+        ).isEqualTo(stringSequence.indexOf(expected.firstOrNull()))
+        assertThat(
+            stringSequence.indexOfLastByExpression(
+                expression,
+                alias
+            )
+        ).isEqualTo(stringSequence.indexOf(expected.lastOrNull()))
+        if (expected.isEmpty()) {
+            assertThrows<NoSuchElementException> {
+                stringSequence.lastByExpression(expression, alias)
+            }
+        } else {
+            assertThat(stringSequence.lastByExpression(expression, alias)).isEqualTo(expected.last())
+        }
+        assertThat(stringSequence.lastOrNullByExpression(expression, alias)).isEqualTo(expected.lastOrNull())
+        assertThat(
+            stringSequence.partitionByExpression(
+                expression,
+                alias
+            )
+        ).isEqualTo(expected to (stringSequence.toList() - expected.toSet()))
     }
 
-    @Test
-    fun arrayFilter() {
-        assertThat(objectArray.mapFilterByExpression("A") { it.value }).containsExactly(OBJECT_A)
-        assertThat(objectArray.mapFilterByExpression("B") { it.value }).containsExactly(OBJECT_B)
-        assertThat(objectArray.mapFilterByExpression("C") { it.value }).containsExactly(OBJECT_C)
-        assertThat(objectArray.mapFilterByExpression("!A") { it.value }).containsExactly(OBJECT_B, OBJECT_C)
-        assertThat(objectArray.mapFilterByExpression("") { it.value }).isEmpty()
-        assertThat(objectArray.mapFilterByExpression(null) { it.value }).containsAll(objectList)
-        assertThat(objectArray.mapFilterByExpression("ALL", mapOf("ALL" to "A|B|C")) { it.value }).containsAll(objectList)
+    @ParameterizedTest
+    @MethodSource("expressionString")
+    fun expressionStringArray(expression: String?, alias: Map<String, String>, expected: List<String>) {
+        assertThat(stringArray.allByExpression(expression, alias)).isEqualTo(expected.size == stringArray.size)
+        assertThat(stringArray.anyByExpression(expression, alias)).isEqualTo(expected.isNotEmpty())
+        assertThat(stringArray.countByExpression(expression, alias)).isEqualTo(expected.size)
+        assertThat(stringArray.filterByExpression(expression, alias)).containsExactlyElementsOf(expected)
+        assertThat(
+            stringArray.filterNotByExpression(
+                expression,
+                alias
+            )
+        ).containsExactlyElementsOf(stringArray.toList() - expected.toSet())
+        assertThat(stringArray.findByExpression(expression, alias)).isEqualTo(expected.firstOrNull())
+        assertThat(stringArray.findLastByExpression(expression, alias)).isEqualTo(expected.lastOrNull())
+        if (expected.isEmpty()) {
+            assertThrows<NoSuchElementException> {
+                stringArray.firstByExpression(expression, alias)
+            }
+        } else {
+            assertThat(stringArray.firstByExpression(expression, alias)).isEqualTo(expected.first())
+        }
+        assertThat(stringArray.firstOrNullByExpression(expression, alias)).isEqualTo(expected.firstOrNull())
+        assertThat(
+            stringArray.indexOfFirstByExpression(
+                expression,
+                alias
+            )
+        ).isEqualTo(stringArray.indexOf(expected.firstOrNull()))
+        assertThat(
+            stringArray.indexOfLastByExpression(
+                expression,
+                alias
+            )
+        ).isEqualTo(stringArray.indexOf(expected.lastOrNull()))
+        if (expected.isEmpty()) {
+            assertThrows<NoSuchElementException> {
+                stringArray.lastByExpression(expression, alias)
+            }
+        } else {
+            assertThat(stringArray.lastByExpression(expression, alias)).isEqualTo(expected.last())
+        }
+        assertThat(stringArray.lastOrNullByExpression(expression, alias)).isEqualTo(expected.lastOrNull())
+        assertThat(
+            stringArray.partitionByExpression(
+                expression,
+                alias
+            )
+        ).isEqualTo(expected to (stringArray.toList() - expected.toSet()))
     }
 
-    @Test
-    fun stringCollectionFilter() {
-        assertThat(stringList.filterByExpression("A")).containsExactly("A")
-        assertThat(stringList.filterByExpression("B")).containsExactly("B")
-        assertThat(stringList.filterByExpression("C")).containsExactly("C")
-        assertThat(stringList.filterByExpression("!A")).containsExactly("B", "C")
-        assertThat(stringList.filterByExpression("")).isEmpty()
-        assertThat(stringList.filterByExpression(null)).containsAll(stringList)
-        assertThat(stringList.filterByExpression("ALL", mapOf("ALL" to "A|B|C"))).containsAll(stringList)
+
+    @ParameterizedTest
+    @MethodSource("expressionObject")
+    fun expressionObjectList(expression: String?, alias: Map<String, String>, expected: List<TestClass>) {
+        assertThat(
+            objectList.allMapByExpression(
+                expression,
+                alias
+            ) { it.value }).isEqualTo(expected.size == objectList.size)
+        assertThat(objectList.anyMapByExpression(expression, alias) { it.value }).isEqualTo(expected.isNotEmpty())
+        assertThat(objectList.countMapByExpression(expression, alias) { it.value }).isEqualTo(expected.size)
+        assertThat(objectList.filterMapByExpression(expression, alias) { it.value }).containsExactlyElementsOf(expected)
+        assertThat(objectList.filterNotMapByExpression(expression, alias) { it.value }).containsExactlyElementsOf(
+            objectList - expected.toSet()
+        )
+        assertThat(objectList.findMapByExpression(expression, alias) { it.value }).isEqualTo(expected.firstOrNull())
+        assertThat(objectList.findLastMapByExpression(expression, alias) { it.value }).isEqualTo(expected.lastOrNull())
+        if (expected.isEmpty()) {
+            assertThrows<NoSuchElementException> {
+                objectList.firstMapByExpression(expression, alias) { it.value }
+            }
+        } else {
+            assertThat(objectList.firstMapByExpression(expression, alias) { it.value }).isEqualTo(expected.first())
+        }
+        assertThat(
+            objectList.firstOrNullMapByExpression(
+                expression,
+                alias
+            ) { it.value }).isEqualTo(expected.firstOrNull())
+        assertThat(objectList.indexOfFirstMapByExpression(expression, alias) { it.value }).isEqualTo(
+            objectList.indexOf(
+                expected.firstOrNull()
+            )
+        )
+        assertThat(objectList.indexOfLastMapByExpression(expression, alias) { it.value }).isEqualTo(
+            objectList.indexOf(
+                expected.lastOrNull()
+            )
+        )
+        if (expected.isEmpty()) {
+            assertThrows<NoSuchElementException> {
+                objectList.lastMapByExpression(expression, alias) { it.value }
+            }
+        } else {
+            assertThat(objectList.lastMapByExpression(expression, alias) { it.value }).isEqualTo(expected.last())
+        }
+        assertThat(
+            objectList.lastOrNullMapByExpression(
+                expression,
+                alias
+            ) { it.value }).isEqualTo(expected.lastOrNull())
+        assertThat(
+            objectList.partitionMapByExpression(
+                expression,
+                alias
+            ) { it.value }).isEqualTo(expected to (objectList - expected.toSet()))
     }
 
-    @Test
-    fun stringCollectionPartition() {
-        assertThat(stringList.partitionByExpression("A")).isEqualTo(listOf("A") to listOf("B", "C"))
-        assertThat(stringList.partitionByExpression("B")).isEqualTo(listOf("B") to listOf("A", "C"))
-        assertThat(stringList.partitionByExpression("C")).isEqualTo(listOf("C") to listOf("A", "B"))
-        assertThat(stringList.partitionByExpression("!A")).isEqualTo(listOf("B", "C") to listOf("A"))
-        assertThat(stringList.partitionByExpression("")).isEqualTo(emptyList<String>() to listOf("A", "B", "C"))
-        assertThat(stringList.partitionByExpression(null)).isEqualTo(listOf("A", "B", "C") to emptyList<String>())
-        assertThat(stringList.partitionByExpression("ALL", mapOf("ALL" to "A|B|C"))).isEqualTo(listOf("A", "B", "C") to emptyList<String>())
-        assertThat(stringList.partitionByExpression("AB", mapOf("AB" to "A|B"))).isEqualTo(listOf("A", "B") to listOf("C"))
+    @ParameterizedTest
+    @MethodSource("expressionObject")
+    fun expressionObjectSequence(expression: String?, alias: Map<String, String>, expected: List<TestClass>) {
+        assertThat(
+            objectSequence.allMapByExpression(
+                expression,
+                alias
+            ) { it.value }).isEqualTo(expected.size == objectSequence.toList().size)
+        assertThat(objectSequence.anyMapByExpression(expression, alias) { it.value }).isEqualTo(expected.isNotEmpty())
+        assertThat(objectSequence.countMapByExpression(expression, alias, { it.value })).isEqualTo(expected.size)
+        assertThat(objectSequence.filterMapByExpression(expression, alias) { it.value }
+            .toList()).containsExactlyElementsOf(expected)
+        assertThat(objectSequence.filterNotMapByExpression(expression, alias) { it.value }
+            .toList()).containsExactlyElementsOf(objectSequence.toList() - expected.toSet())
+        assertThat(objectSequence.findMapByExpression(expression, alias) { it.value }).isEqualTo(expected.firstOrNull())
+        assertThat(
+            objectSequence.findLastMapByExpression(
+                expression,
+                alias
+            ) { it.value }).isEqualTo(expected.lastOrNull())
+        if (expected.isEmpty()) {
+            assertThrows<NoSuchElementException> {
+                objectSequence.firstMapByExpression(expression, alias) { it.value }
+            }
+        } else {
+            assertThat(objectSequence.firstMapByExpression(expression, alias) { it.value }).isEqualTo(expected.first())
+        }
+        assertThat(
+            objectSequence.firstOrNullMapByExpression(
+                expression,
+                alias
+            ) { it.value }).isEqualTo(expected.firstOrNull())
+        assertThat(
+            objectSequence.indexOfFirstMapByExpression(
+                expression,
+                alias
+            ) { it.value }).isEqualTo(objectSequence.indexOf(expected.firstOrNull()))
+        assertThat(
+            objectSequence.indexOfLastMapByExpression(
+                expression,
+                alias
+            ) { it.value }).isEqualTo(objectSequence.indexOf(expected.lastOrNull()))
+        if (expected.isEmpty()) {
+            assertThrows<NoSuchElementException> {
+                objectSequence.lastMapByExpression(expression, alias) { it.value }
+            }
+        } else {
+            assertThat(objectSequence.lastMapByExpression(expression, alias) { it.value }).isEqualTo(expected.last())
+        }
+        assertThat(
+            objectSequence.lastOrNullMapByExpression(
+                expression,
+                alias
+            ) { it.value }).isEqualTo(expected.lastOrNull())
+        assertThat(
+            objectSequence.partitionMapByExpression(
+                expression,
+                alias
+            ) { it.value }).isEqualTo(expected to (objectSequence.toList() - expected.toSet()))
     }
 
-    @Test
-    fun stringArrayFilter() {
-        assertThat(stringArray.filterByExpression("A")).containsExactly("A")
-        assertThat(stringArray.filterByExpression("B")).containsExactly("B")
-        assertThat(stringArray.filterByExpression("C")).containsExactly("C")
-        assertThat(stringArray.filterByExpression("!A")).containsExactly("B", "C")
-        assertThat(stringArray.filterByExpression("B|C")).containsExactly("B", "C")
-        assertThat(stringArray.filterByExpression("")).isEmpty()
-        assertThat(stringArray.filterByExpression(null)).containsAll(stringList)
-        assertThat(stringArray.filterByExpression("ALL", mapOf("ALL" to "A|B|C"))).containsAll(stringList)
+    @ParameterizedTest
+    @MethodSource("expressionObject")
+    fun expressionObjectArray(expression: String?, alias: Map<String, String>, expected: List<TestClass>) {
+        assertThat(
+            objectArray.allMapByExpression(
+                expression,
+                alias
+            ) { it.value }).isEqualTo(expected.size == objectArray.size)
+        assertThat(objectArray.anyMapByExpression(expression, alias) { it.value }).isEqualTo(expected.isNotEmpty())
+        assertThat(objectArray.countMapByExpression(expression, alias) { it.value }).isEqualTo(expected.size)
+        assertThat(objectArray.filterMapByExpression(expression, alias) { it.value }
+            .toList()).containsExactlyElementsOf(expected)
+        assertThat(objectArray.filterNotMapByExpression(expression, alias) { it.value }
+            .toList()).containsExactlyElementsOf(objectArray.toList() - expected.toSet())
+        assertThat(objectArray.findMapByExpression(expression, alias) { it.value }).isEqualTo(expected.firstOrNull())
+        assertThat(objectArray.findLastMapByExpression(expression, alias) { it.value }).isEqualTo(expected.lastOrNull())
+        if (expected.isEmpty()) {
+            assertThrows<NoSuchElementException> {
+                objectArray.firstMapByExpression(expression, alias, { it.value })
+            }
+        } else {
+            assertThat(objectArray.firstMapByExpression(expression, alias) { it.value }).isEqualTo(expected.first())
+        }
+        assertThat(
+            objectArray.firstOrNullMapByExpression(
+                expression,
+                alias
+            ) { it.value }).isEqualTo(expected.firstOrNull())
+        assertThat(
+            objectArray.indexOfFirstMapByExpression(
+                expression,
+                alias
+            ) { it.value }).isEqualTo(objectArray.indexOf(expected.firstOrNull()))
+        assertThat(
+            objectArray.indexOfLastMapByExpression(
+                expression,
+                alias
+            ) { it.value }).isEqualTo(objectArray.indexOf(expected.lastOrNull()))
+        if (expected.isEmpty()) {
+            assertThrows<NoSuchElementException> {
+                objectArray.lastMapByExpression(expression, alias) { it.value }
+            }
+        } else {
+            assertThat(objectArray.lastMapByExpression(expression, alias) { it.value }).isEqualTo(expected.last())
+        }
+        assertThat(
+            objectArray.lastOrNullMapByExpression(
+                expression,
+                alias
+            ) { it.value }).isEqualTo(expected.lastOrNull())
+        assertThat(
+            objectArray.partitionMapByExpression(
+                expression,
+                alias
+            ) { it.value }).isEqualTo(expected to (objectArray.toList() - expected.toSet()))
     }
 
-    @Test
-    fun stringSequenceFilter() {
-        assertThat(stringList.asSequence().filterByExpression("A").toList()).containsExactly("A")
-        assertThat(stringList.asSequence().filterByExpression("B").toList()).containsExactly("B")
-        assertThat(stringList.asSequence().filterByExpression("C").toList()).containsExactly("C")
-        assertThat(stringList.asSequence().filterByExpression("!A").toList()).containsExactly("B", "C")
-        assertThat(stringList.asSequence().filterByExpression("").toList()).isEmpty()
-        assertThat(stringList.asSequence().filterByExpression(null).toList()).containsAll(stringList)
-        assertThat(stringList.asSequence().filterByExpression("ALL", mapOf("ALL" to "A|B|C")).toList()).containsAll(stringList)
+    @ParameterizedTest
+    @MethodSource("expressionFlatMapObject")
+    fun expressionFlatMapObjectList(expression: String?, alias: Map<String, String>, expected: List<TestClass>) {
+        println("apply $expression to ${objectSequence.toList()} where $alias => $expected")
+        assertThat(objectList.allFlatMapByExpression(expression, alias) {
+            listOf(
+                it.value,
+                "${it.value}${it.value}"
+            )
+        }).isEqualTo(expected.size == objectList.size)
+        assertThat(objectList.anyFlatMapByExpression(expression, alias) {
+            listOf(
+                it.value,
+                "${it.value}${it.value}"
+            )
+        }).isEqualTo(expected.isNotEmpty())
+        assertThat(objectList.countFlatMapByExpression(expression, alias) {
+            listOf(
+                it.value,
+                "${it.value}${it.value}"
+            )
+        }).isEqualTo(expected.size)
+        assertThat(objectList.filterFlatMapByExpression(expression, alias) {
+            listOf(
+                it.value,
+                "${it.value}${it.value}"
+            )
+        }).containsExactlyElementsOf(expected)
+        assertThat(objectList.filterNotFlatMapByExpression(expression, alias) {
+            listOf(
+                it.value,
+                "${it.value}${it.value}"
+            )
+        }).containsExactlyElementsOf(objectList - expected.toSet())
+        assertThat(objectList.findFlatMapByExpression(expression, alias) {
+            listOf(
+                it.value,
+                "${it.value}${it.value}"
+            )
+        }).isEqualTo(expected.firstOrNull())
+        assertThat(objectList.findLastFlatMapByExpression(expression, alias) {
+            listOf(
+                it.value,
+                "${it.value}${it.value}"
+            )
+        }).isEqualTo(expected.lastOrNull())
+        if (expected.isEmpty()) {
+            assertThrows<NoSuchElementException> {
+                objectList.firstFlatMapByExpression(expression, alias) { listOf(it.value, "${it.value}${it.value}") }
+            }
+        } else {
+            assertThat(objectList.firstFlatMapByExpression(expression, alias) {
+                listOf(
+                    it.value,
+                    "${it.value}${it.value}"
+                )
+            }).isEqualTo(expected.first())
+        }
+        assertThat(objectList.firstOrNullFlatMapByExpression(expression, alias) {
+            listOf(
+                it.value,
+                "${it.value}${it.value}"
+            )
+        }).isEqualTo(expected.firstOrNull())
+        assertThat(objectList.indexOfFirstFlatMapByExpression(expression, alias) {
+            listOf(
+                it.value,
+                "${it.value}${it.value}"
+            )
+        }).isEqualTo(objectList.indexOf(expected.firstOrNull()))
+        assertThat(objectList.indexOfLastFlatMapByExpression(expression, alias) {
+            listOf(
+                it.value,
+                "${it.value}${it.value}"
+            )
+        }).isEqualTo(objectList.indexOf(expected.lastOrNull()))
+        if (expected.isEmpty()) {
+            assertThrows<NoSuchElementException> {
+                objectList.lastFlatMapByExpression(expression, alias) { listOf(it.value, "${it.value}${it.value}") }
+            }
+        } else {
+            assertThat(objectList.lastFlatMapByExpression(expression, alias) {
+                listOf(
+                    it.value,
+                    "${it.value}${it.value}"
+                )
+            }).isEqualTo(expected.last())
+        }
+        assertThat(objectList.lastOrNullFlatMapByExpression(expression, alias) {
+            listOf(
+                it.value,
+                "${it.value}${it.value}"
+            )
+        }).isEqualTo(expected.lastOrNull())
+        assertThat(objectList.partitionFlatMapByExpression(expression, alias) {
+            listOf(
+                it.value,
+                "${it.value}${it.value}"
+            )
+        }).isEqualTo(expected to (objectList - expected.toSet()))
     }
+
+    @ParameterizedTest
+    @MethodSource("expressionFlatMapObject")
+    fun expressionFlatObjectSequence(expression: String?, alias: Map<String, String>, expected: List<TestClass>) {
+        println("apply $expression to ${objectSequence.toList()} where $alias => $expected")
+        assertThat(objectSequence.allFlatMapByExpression(expression, alias) {
+            sequenceOf(
+                it.value,
+                "${it.value}${it.value}"
+            )
+        }).isEqualTo(expected.size == objectSequence.toList().size)
+        assertThat(objectSequence.anyFlatMapByExpression(expression, alias) {
+            sequenceOf(
+                it.value,
+                "${it.value}${it.value}"
+            )
+        }).isEqualTo(expected.isNotEmpty())
+        assertThat(objectSequence.countFlatMapByExpression(expression, alias) {
+            sequenceOf(
+                it.value,
+                "${it.value}${it.value}"
+            )
+        }).isEqualTo(expected.size)
+        assertThat(objectSequence.filterFlatMapByExpression(expression, alias) {
+            sequenceOf(
+                it.value,
+                "${it.value}${it.value}"
+            )
+        }.toList()).containsExactlyElementsOf(expected)
+        assertThat(objectSequence.filterNotFlatMapByExpression(expression, alias) {
+            sequenceOf(
+                it.value,
+                "${it.value}${it.value}"
+            )
+        }.toList()).containsExactlyElementsOf(objectSequence.toList() - expected.toSet())
+        assertThat(objectSequence.findFlatMapByExpression(expression, alias) {
+            sequenceOf(
+                it.value,
+                "${it.value}${it.value}"
+            )
+        }).isEqualTo(expected.firstOrNull())
+        assertThat(objectSequence.findLastFlatMapByExpression(expression, alias) {
+            sequenceOf(
+                it.value,
+                "${it.value}${it.value}"
+            )
+        }).isEqualTo(expected.lastOrNull())
+        if (expected.isEmpty()) {
+            assertThrows<NoSuchElementException> {
+                objectSequence.firstFlatMapByExpression(expression, alias) {
+                    sequenceOf(
+                        it.value,
+                        "${it.value}${it.value}"
+                    )
+                }
+            }
+        } else {
+            assertThat(objectSequence.firstFlatMapByExpression(expression, alias) {
+                sequenceOf(
+                    it.value,
+                    "${it.value}${it.value}"
+                )
+            }).isEqualTo(expected.first())
+        }
+        assertThat(objectSequence.firstOrNullFlatMapByExpression(expression, alias) {
+            sequenceOf(
+                it.value,
+                "${it.value}${it.value}"
+            )
+        }).isEqualTo(expected.firstOrNull())
+        assertThat(objectSequence.indexOfFirstFlatMapByExpression(expression, alias) {
+            sequenceOf(
+                it.value,
+                "${it.value}${it.value}"
+            )
+        }).isEqualTo(objectSequence.indexOf(expected.firstOrNull()))
+        assertThat(objectSequence.indexOfLastFlatMapByExpression(expression, alias) {
+            sequenceOf(
+                it.value,
+                "${it.value}${it.value}"
+            )
+        }).isEqualTo(objectSequence.indexOf(expected.lastOrNull()))
+        if (expected.isEmpty()) {
+            assertThrows<NoSuchElementException> {
+                objectSequence.lastFlatMapByExpression(expression, alias) {
+                    sequenceOf(
+                        it.value,
+                        "${it.value}${it.value}"
+                    )
+                }
+            }
+        } else {
+            assertThat(objectSequence.lastFlatMapByExpression(expression, alias) {
+                sequenceOf(
+                    it.value,
+                    "${it.value}${it.value}"
+                )
+            }).isEqualTo(expected.last())
+        }
+        assertThat(objectSequence.lastOrNullFlatMapByExpression(expression, alias) {
+            sequenceOf(
+                it.value,
+                "${it.value}${it.value}"
+            )
+        }).isEqualTo(expected.lastOrNull())
+        assertThat(objectSequence.partitionFlatMapByExpression(expression, alias) {
+            sequenceOf(
+                it.value,
+                "${it.value}${it.value}"
+            )
+        }).isEqualTo(expected to (objectSequence.toList() - expected.toSet()))
+    }
+
+    @ParameterizedTest
+    @MethodSource("expressionFlatMapObject")
+    fun expressionFlatObjectArray(expression: String?, alias: Map<String, String>, expected: List<TestClass>) {
+        assertThat(objectArray.allFlatMapByExpression(expression, alias) {
+            listOf(
+                it.value,
+                "${it.value}${it.value}"
+            )
+        }).isEqualTo(expected.size == objectArray.size)
+        assertThat(objectArray.anyFlatMapByExpression(expression, alias) {
+            listOf(
+                it.value,
+                "${it.value}${it.value}"
+            )
+        }).isEqualTo(expected.isNotEmpty())
+        assertThat(objectArray.countFlatMapByExpression(expression, alias) {
+            listOf(
+                it.value,
+                "${it.value}${it.value}"
+            )
+        }).isEqualTo(expected.size)
+        assertThat(objectArray.filterFlatMapByExpression(expression, alias) {
+            listOf(
+                it.value,
+                "${it.value}${it.value}"
+            )
+        }.toList()).containsExactlyElementsOf(expected)
+        assertThat(objectArray.filterNotFlatMapByExpression(expression, alias) {
+            listOf(
+                it.value,
+                "${it.value}${it.value}"
+            )
+        }.toList()).containsExactlyElementsOf(objectArray.toList() - expected.toSet())
+        assertThat(objectArray.findFlatMapByExpression(expression, alias) {
+            listOf(
+                it.value,
+                "${it.value}${it.value}"
+            )
+        }).isEqualTo(expected.firstOrNull())
+        assertThat(objectArray.findLastFlatMapByExpression(expression, alias) {
+            listOf(
+                it.value,
+                "${it.value}${it.value}"
+            )
+        }).isEqualTo(expected.lastOrNull())
+        if (expected.isEmpty()) {
+            assertThrows<NoSuchElementException> {
+                objectArray.firstFlatMapByExpression(expression, alias) {
+                    listOf(
+                        it.value,
+                        "${it.value}${it.value}"
+                    )
+                }
+            }
+        } else {
+            assertThat(objectArray.firstFlatMapByExpression(expression, alias) {
+                listOf(
+                    it.value,
+                    "${it.value}${it.value}"
+                )
+            }).isEqualTo(expected.first())
+        }
+        assertThat(objectArray.firstOrNullFlatMapByExpression(expression, alias) {
+            listOf(
+                it.value,
+                "${it.value}${it.value}"
+            )
+        }).isEqualTo(expected.firstOrNull())
+        assertThat(objectArray.indexOfFirstFlatMapByExpression(expression, alias) {
+            listOf(
+                it.value,
+                "${it.value}${it.value}"
+            )
+        }).isEqualTo(objectArray.indexOf(expected.firstOrNull()))
+        assertThat(objectArray.indexOfLastFlatMapByExpression(expression, alias) {
+            listOf(
+                it.value,
+                "${it.value}${it.value}"
+            )
+        }).isEqualTo(objectArray.indexOf(expected.lastOrNull()))
+        if (expected.isEmpty()) {
+            assertThrows<NoSuchElementException> {
+                objectArray.lastFlatMapByExpression(expression, alias) { listOf(it.value, "${it.value}${it.value}") }
+            }
+        } else {
+            assertThat(objectArray.lastFlatMapByExpression(expression, alias) {
+                listOf(
+                    it.value,
+                    "${it.value}${it.value}"
+                )
+            }).isEqualTo(expected.last())
+        }
+        assertThat(objectArray.lastOrNullFlatMapByExpression(expression, alias) {
+            listOf(
+                it.value,
+                "${it.value}${it.value}"
+            )
+        }).isEqualTo(expected.lastOrNull())
+        assertThat(objectArray.partitionFlatMapByExpression(expression, alias) {
+            listOf(
+                it.value,
+                "${it.value}${it.value}"
+            )
+        }).isEqualTo(expected to (objectArray.toList() - expected.toSet()))
+    }
+
+    //    @Test
+//    fun compile_GivenEnum() {
+//        assertThat("A".filterByExpression<TestEnum>()).containsExactly(TestEnum.A)
+//        assertThat("(A)".filterByExpression<TestEnum>()).containsExactly(TestEnum.A)
+//        assertThat("!A".filterByExpression<TestEnum>()).containsExactly(TestEnum.B, TestEnum.C)
+//        assertThat("!(A)".filterByExpression<TestEnum>()).containsExactly(TestEnum.B, TestEnum.C)
+//        assertThat("!A|A".filterByExpression<TestEnum>()).containsExactly(TestEnum.A, TestEnum.B, TestEnum.C)
+//        assertThat("!A&A".filterByExpression<TestEnum>()).isEmpty()
+//        assertThat("(!A|B)|A".filterByExpression<TestEnum>()).containsExactly(TestEnum.A, TestEnum.B, TestEnum.C)
+//        assertThat("X".filterByExpression<TestEnum>()).isEmpty()
+//        assertThat("!X".filterByExpression<TestEnum>()).containsExactly(TestEnum.A, TestEnum.B, TestEnum.C)
+//    }
+//
+//    @Test
+//    fun collectionFilter() {
+//        assertThat(objectList.filterMapByExpression("A") { it.value }).containsExactly(OBJECT_A)
+//        assertThat(objectList.filterMapByExpression("B") { it.value }).containsExactly(OBJECT_B)
+//        assertThat(objectList.filterMapByExpression("C") { it.value }).containsExactly(OBJECT_C)
+//        assertThat(objectList.filterMapByExpression("!A") { it.value }).containsExactly(OBJECT_B, OBJECT_C)
+//        assertThat(objectList.filterMapByExpression("") { it.value }).isEmpty()
+//        assertThat(objectList.filterMapByExpression(null) { it.value }).containsAll(objectList)
+//        assertThat(objectList.filterMapByExpression("ALL", mapOf("ALL" to "A|B|C")) { it.value }).containsAll(objectList)
+//    }
+//
+//    @Test
+//    fun arrayFilter() {
+//        assertThat(objectArray.filterMapByExpression("A") { it.value }).containsExactly(OBJECT_A)
+//        assertThat(objectArray.filterMapByExpression("B") { it.value }).containsExactly(OBJECT_B)
+//        assertThat(objectArray.filterMapByExpression("C") { it.value }).containsExactly(OBJECT_C)
+//        assertThat(objectArray.filterMapByExpression("!A") { it.value }).containsExactly(OBJECT_B, OBJECT_C)
+//        assertThat(objectArray.filterMapByExpression("") { it.value }).isEmpty()
+//        assertThat(objectArray.filterMapByExpression(null) { it.value }).containsAll(objectList)
+//        assertThat(objectArray.filterMapByExpression("ALL", mapOf("ALL" to "A|B|C")) { it.value }).containsAll(objectList)
+//    }
+//
+//    @Test
+//    fun stringCollectionPartition() {
+//        assertThat(stringList.partitionByExpression("A")).isEqualTo(stringList.filterByExpression("A") to stringList.filterNotByExpression("A"))
+//        assertThat(stringList.partitionByExpression("B")).isEqualTo(listOf("B") to listOf("A", "C"))
+//        assertThat(stringList.partitionByExpression("C")).isEqualTo(listOf("C") to listOf("A", "B"))
+//        assertThat(stringList.partitionByExpression("!A")).isEqualTo(listOf("B", "C") to listOf("A"))
+//        assertThat(stringList.partitionByExpression("")).isEqualTo(emptyList<String>() to listOf("A", "B", "C"))
+//        assertThat(stringList.partitionByExpression(null)).isEqualTo(listOf("A", "B", "C") to emptyList<String>())
+//        assertThat(stringList.partitionByExpression("ALL", mapOf("ALL" to "A|B|C"))).isEqualTo(listOf("A", "B", "C") to emptyList<String>())
+//        assertThat(stringList.partitionByExpression("AB", mapOf("AB" to "A|B"))).isEqualTo(listOf("A", "B") to listOf("C"))
+//    }
+//
+//    @Test
+//    fun stringArrayFilter() {
+//        assertThat(stringArray.filterByExpression("A")).containsExactly("A")
+//        assertThat(stringArray.filterByExpression("B")).containsExactly("B")
+//        assertThat(stringArray.filterByExpression("C")).containsExactly("C")
+//        assertThat(stringArray.filterByExpression("!A")).containsExactly("B", "C")
+//        assertThat(stringArray.filterByExpression("B|C")).containsExactly("B", "C")
+//        assertThat(stringArray.filterByExpression("")).isEmpty()
+//        assertThat(stringArray.filterByExpression(null)).containsAll(stringList)
+//        assertThat(stringArray.filterByExpression("ALL", mapOf("ALL" to "A|B|C"))).containsAll(stringList)
+//    }
+//
+//    @Test
+//    fun stringSequenceFilter() {
+//        assertThat(stringList.asSequence().filterByExpression("A").toList()).containsExactly("A")
+//        assertThat(stringList.asSequence().filterByExpression("B").toList()).containsExactly("B")
+//        assertThat(stringList.asSequence().filterByExpression("C").toList()).containsExactly("C")
+//        assertThat(stringList.asSequence().filterByExpression("!A").toList()).containsExactly("B", "C")
+//        assertThat(stringList.asSequence().filterByExpression("").toList()).isEmpty()
+//        assertThat(stringList.asSequence().filterByExpression(null).toList()).containsAll(stringList)
+//        assertThat(stringList.asSequence().filterByExpression("ALL", mapOf("ALL" to "A|B|C")).toList()).containsAll(stringList)
+//    }
 }
 
