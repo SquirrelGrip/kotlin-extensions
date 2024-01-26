@@ -92,6 +92,15 @@ abstract class Compiler<T> {
                     visit(ctx.expression(0)).invoke(it) xor visit(ctx.expression(1)).invoke(it)
                 }
 
+            override fun visitImpliesExpression(ctx: DrainerParser.ImpliesExpressionContext): (T) -> Boolean =
+                {
+                    if (visit(ctx.expression(0)).invoke(it)) {
+                        visit(ctx.expression(1)).invoke(it)
+                    } else {
+                        true
+                    }
+                }
+
             override fun visitParenExpression(ctx: DrainerParser.ParenExpressionContext): (T) -> Boolean =
                 {
                     visit(ctx.expression()).invoke(it)

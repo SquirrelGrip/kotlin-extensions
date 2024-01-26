@@ -76,7 +76,9 @@ internal class CompilerTest {
                 Arguments.of("\\&A", "\\&B", "\\&C"),
             )
 
-        val operations = listOf("(", ")", "&", "|", "^", "!", "?", "*", "~")
+        val reservedOperators = listOf("(", ")", "?", "*", "~")
+        val unaryOperators = listOf("!")
+        val binaryOperations = listOf("&", "|", "^", "=>")
         val escaped = listOf("\"", "\\")
         val validChars = listOf(
             "A",
@@ -93,10 +95,8 @@ internal class CompilerTest {
             ",",
             ".",
             "<",
-            ">",
             "/",
             "+",
-            "=",
             "-",
             "_",
             "`",
@@ -112,29 +112,52 @@ internal class CompilerTest {
                 validChars.map { "$it\\\\*" },
                 validChars.map { " $it " },
                 validChars.map { " $it & $it " },
-                (operations + escaped).map { "\\$it" },
-                (operations + escaped).map { " \\$it" },
-                operations.map { "\"$it\"" },
-                operations.map { "\" $it\" " },
-                operations.map { "\" $it\"" },
-                operations.map { "\\$it" },
+                (reservedOperators + unaryOperators + binaryOperations + escaped).map { "\\$it" },
+                (reservedOperators + unaryOperators + binaryOperations + escaped).map { " \\$it" },
+                (reservedOperators + unaryOperators + binaryOperations).map { "\"$it\"" },
+                (reservedOperators + unaryOperators + binaryOperations).map { "\" $it\" " },
+                (reservedOperators + unaryOperators + binaryOperations).map { "\" $it\"" },
+                (reservedOperators + unaryOperators + binaryOperations).map { "\\$it" },
                 escaped.map { "\"\\$it\"" },
                 // A&B
-                generateArguments(validChars, validChars) { first, second -> "$first&$second" },
-                // A|B
-                generateArguments(validChars, validChars) { first, second -> "$first|$second" },
+                generateArguments(
+                    validChars,
+                    validChars,
+                    binaryOperations
+                ) { first, second, operator -> "$first$operator$second" },
                 // A&!B
-                generateArguments(validChars, validChars) { first, second -> "$first&!$second" },
+                generateArguments(
+                    validChars,
+                    validChars,
+                    binaryOperations
+                ) { first, second, operator -> "$first$operator!$second" },
                 // A\&B eg. Letter, Backslash, And, Operand
-                generateArguments(validChars, validChars) { first, second -> "$first\\&$second" },
+                generateArguments(
+                    validChars,
+                    validChars,
+                    (binaryOperations + unaryOperators + reservedOperators)
+                ) { first, second, operator -> "$first\\$operator$second" },
                 // AA\&B eg. Letter, Backslash, And, Operand
-                generateArguments(validChars, validChars) { first, second -> "$first$first\\&$second" },
+                generateArguments(
+                    validChars,
+                    validChars,
+                    (binaryOperations + unaryOperators + reservedOperators)
+                ) { first, second, operator -> "$first$first\\$operator$second" },
                 // A\( eg. Letter, Backslash, Operand
-                generateArguments(validChars, operations) { first, second -> "$first\\$second" },
+                generateArguments(
+                    validChars,
+                    reservedOperators + unaryOperators + binaryOperations
+                ) { first, second -> "$first\\$second" },
                 // A\(A eg. Letter, Backslash, Operand, Letter
-                generateArguments(validChars, operations) { first, second -> "$first\\$second$first" },
+                generateArguments(
+                    validChars,
+                    reservedOperators + unaryOperators + binaryOperations
+                ) { first, second -> "$first\\$second$first" },
                 // "A(" eg. Double Quote, Letter, Operand, Double Quote
-                generateArguments(validChars, operations) { first, second -> "\"$first$second\"" },
+                generateArguments(
+                    validChars,
+                    reservedOperators + unaryOperators + binaryOperations
+                ) { first, second -> "\"$first$second\"" },
                 // A\" eg. Letter, Backslash, Escaped Char
                 generateArguments(validChars, escaped) { first, second -> "$first\\$second" },
                 // "A\"" eg. Double Quote, Letter, Backslash, Escaped Char, Double Quote
@@ -149,12 +172,14 @@ internal class CompilerTest {
         fun expressionTestEnum(): Stream<Arguments> =
             listOf(
                 Arguments.of("A", mapOf("X" to "A|B"), listOf(TestEnum.A)),
+
                 Arguments.of("(A)", mapOf("X" to "A|B"), listOf(TestEnum.A)),
                 Arguments.of("!A", mapOf("X" to "A|B"), listOf(TestEnum.B, TestEnum.C)),
                 Arguments.of("!(A)", mapOf("X" to "A|B"), listOf(TestEnum.B, TestEnum.C)),
                 Arguments.of("!A|A", mapOf("X" to "A|B"), listOf(TestEnum.A, TestEnum.B, TestEnum.C)),
                 Arguments.of("!A&A", mapOf("X" to "A|B"), emptyList<TestEnum>()),
                 Arguments.of("(!A|B)|A", mapOf("X" to "A|B"), listOf(TestEnum.A, TestEnum.B, TestEnum.C)),
+                Arguments.of("A=>B", mapOf("X" to "A|B"), listOf(TestEnum.B, TestEnum.C)),
                 Arguments.of("X", mapOf("X" to "A|B"), listOf(TestEnum.A, TestEnum.B)),
                 Arguments.of("!X", mapOf("X" to "A|B"), listOf(TestEnum.C)),
                 Arguments.of("ALL", mapOf("ALL" to "A|B|C"), listOf(TestEnum.A, TestEnum.B, TestEnum.C)),
@@ -169,12 +194,12 @@ internal class CompilerTest {
                 Arguments.of("!A|A", emptyMap<String, String>(), listOf(TestEnum.A, TestEnum.B, TestEnum.C)),
                 Arguments.of("!A&A", emptyMap<String, String>(), emptyList<TestEnum>()),
                 Arguments.of("(!A|B)|A", emptyMap<String, String>(), listOf(TestEnum.A, TestEnum.B, TestEnum.C)),
+                Arguments.of("A=>B", emptyMap<String, String>(), listOf(TestEnum.B, TestEnum.C)),
                 Arguments.of("X", emptyMap<String, String>(), emptyList<TestEnum>()),
                 Arguments.of("!X", emptyMap<String, String>(), listOf(TestEnum.A, TestEnum.B, TestEnum.C)),
                 Arguments.of("ALL", emptyMap<String, String>(), emptyList<TestEnum>()),
                 Arguments.of(null, emptyMap<String, String>(), listOf(TestEnum.A, TestEnum.B, TestEnum.C)),
-
-                ).stream()
+            ).stream()
 
         @JvmStatic
         fun expressionString(): Stream<Arguments> =
@@ -186,6 +211,7 @@ internal class CompilerTest {
                 Arguments.of("!A|A", mapOf("X" to "A|B"), listOf("A", "B", "C")),
                 Arguments.of("!A&A", mapOf("X" to "A|B"), emptyList<String>()),
                 Arguments.of("(!A|B)|A", mapOf("X" to "A|B"), listOf("A", "B", "C")),
+                Arguments.of("A=>B", mapOf("X" to "A|B"), listOf("B", "C")),
                 Arguments.of("X", mapOf("X" to "A|B"), listOf("A", "B")),
                 Arguments.of("!X", mapOf("X" to "A|B"), listOf("C")),
                 Arguments.of("ALL", mapOf("ALL" to "A|B|C"), listOf("A", "B", "C")),
@@ -199,13 +225,13 @@ internal class CompilerTest {
                 Arguments.of("!A|A", emptyMap<String, String>(), listOf("A", "B", "C")),
                 Arguments.of("!A&A", emptyMap<String, String>(), emptyList<String>()),
                 Arguments.of("(!A|B)|A", emptyMap<String, String>(), listOf("A", "B", "C")),
+                Arguments.of("A=>B", emptyMap<String, String>(), listOf("B", "C")),
                 Arguments.of("X", emptyMap<String, String>(), emptyList<String>()),
                 Arguments.of("!X", emptyMap<String, String>(), listOf("A", "B", "C")),
                 Arguments.of("ALL", emptyMap<String, String>(), emptyList<String>()),
                 Arguments.of("", emptyMap<String, String>(), emptyList<String>()),
                 Arguments.of(null, emptyMap<String, String>(), listOf("A", "B", "C")),
-
-                ).stream()
+            ).stream()
 
         @JvmStatic
         fun expressionObject(): Stream<Arguments> =
@@ -217,6 +243,7 @@ internal class CompilerTest {
                 Arguments.of("!A|A", mapOf("X" to "A|B"), listOf(OBJECT_A, OBJECT_B, OBJECT_C)),
                 Arguments.of("!A&A", mapOf("X" to "A|B"), emptyList<TestClass>()),
                 Arguments.of("(!A|B)|A", mapOf("X" to "A|B"), listOf(OBJECT_A, OBJECT_B, OBJECT_C)),
+                Arguments.of("A=>B", mapOf("X" to "A|B"), listOf(OBJECT_B, OBJECT_C)),
                 Arguments.of("X", mapOf("X" to "A|B"), listOf(OBJECT_A, OBJECT_B)),
                 Arguments.of("!X", mapOf("X" to "A|B"), listOf(OBJECT_C)),
                 Arguments.of("ALL", mapOf("ALL" to "A|B|C"), listOf(OBJECT_A, OBJECT_B, OBJECT_C)),
@@ -230,6 +257,7 @@ internal class CompilerTest {
                 Arguments.of("!A|A", emptyMap<String, String>(), listOf(OBJECT_A, OBJECT_B, OBJECT_C)),
                 Arguments.of("!A&A", emptyMap<String, String>(), emptyList<TestClass>()),
                 Arguments.of("(!A|B)|A", emptyMap<String, String>(), listOf(OBJECT_A, OBJECT_B, OBJECT_C)),
+                Arguments.of("A=>B", emptyMap<String, String>(), listOf(OBJECT_B, OBJECT_C)),
                 Arguments.of("X", emptyMap<String, String>(), emptyList<TestClass>()),
                 Arguments.of("!X", emptyMap<String, String>(), listOf(OBJECT_A, OBJECT_B, OBJECT_C)),
                 Arguments.of("ALL", emptyMap<String, String>(), emptyList<TestClass>()),
@@ -247,6 +275,7 @@ internal class CompilerTest {
                 Arguments.of("!A|A", mapOf("X" to "AABB"), listOf(OBJECT_A, OBJECT_B, OBJECT_C)),
                 Arguments.of("!A&A", mapOf("X" to "AA|BB"), emptyList<TestClass>()),
                 Arguments.of("(!A|B)|A", mapOf("X" to "AA|BB"), listOf(OBJECT_A, OBJECT_B, OBJECT_C)),
+                Arguments.of("A=>B", mapOf("X" to "AA|BB"), listOf(OBJECT_B, OBJECT_C)),
                 Arguments.of("X", mapOf("X" to "AA|BB"), listOf(OBJECT_A, OBJECT_B)),
                 Arguments.of("!X", mapOf("X" to "AA|BB"), listOf(OBJECT_C)),
                 Arguments.of("ALL", mapOf("ALL" to "AA|BB|CC"), listOf(OBJECT_A, OBJECT_B, OBJECT_C)),
@@ -260,6 +289,7 @@ internal class CompilerTest {
                 Arguments.of("!AA|AA", mapOf("X" to "AA|BB"), listOf(OBJECT_A, OBJECT_B, OBJECT_C)),
                 Arguments.of("!AA&AA", mapOf("X" to "AA|BB"), emptyList<TestClass>()),
                 Arguments.of("(!AA|BB)|AA", mapOf("X" to "AA|BB"), listOf(OBJECT_A, OBJECT_B, OBJECT_C)),
+                Arguments.of("A=>AA", mapOf("X" to "AA|BB"), listOf(OBJECT_A, OBJECT_B, OBJECT_C)),
                 Arguments.of("X", mapOf("X" to "AA|BB"), listOf(OBJECT_A, OBJECT_B)),
                 Arguments.of("!X", mapOf("X" to "AA|BB"), listOf(OBJECT_C)),
                 Arguments.of("ALL", mapOf("ALL" to "AA|BB|CC"), listOf(OBJECT_A, OBJECT_B, OBJECT_C)),
@@ -272,6 +302,7 @@ internal class CompilerTest {
                 Arguments.of("!(A)", emptyMap<String, String>(), listOf(OBJECT_B, OBJECT_C)),
                 Arguments.of("!A|A", emptyMap<String, String>(), listOf(OBJECT_A, OBJECT_B, OBJECT_C)),
                 Arguments.of("(!A|B)|A", emptyMap<String, String>(), listOf(OBJECT_A, OBJECT_B, OBJECT_C)),
+                Arguments.of("A=>B", emptyMap<String, String>(), listOf(OBJECT_B, OBJECT_C)),
                 Arguments.of("X", emptyMap<String, String>(), emptyList<TestClass>()),
                 Arguments.of("!X", emptyMap<String, String>(), listOf(OBJECT_A, OBJECT_B, OBJECT_C)),
                 Arguments.of("ALL", emptyMap<String, String>(), emptyList<TestClass>()),
@@ -284,6 +315,7 @@ internal class CompilerTest {
                 Arguments.of("!(AA)", emptyMap<String, String>(), listOf(OBJECT_B, OBJECT_C)),
                 Arguments.of("!AA|AA", emptyMap<String, String>(), listOf(OBJECT_A, OBJECT_B, OBJECT_C)),
                 Arguments.of("(!AA|BB)|AA", emptyMap<String, String>(), listOf(OBJECT_A, OBJECT_B, OBJECT_C)),
+                Arguments.of("A=>AA", emptyMap<String, String>(), listOf(OBJECT_A, OBJECT_B, OBJECT_C)),
                 Arguments.of("X", emptyMap<String, String>(), emptyList<TestClass>()),
                 Arguments.of("!X", emptyMap<String, String>(), listOf(OBJECT_A, OBJECT_B, OBJECT_C)),
                 Arguments.of("ALL", emptyMap<String, String>(), emptyList<TestClass>()),
@@ -300,6 +332,20 @@ internal class CompilerTest {
                 list2.map { second ->
                     expression.invoke(first, second)
                 }
+            }.flatten()
+
+        private fun generateArguments(
+            list1: List<String>,
+            list2: List<String>,
+            operators: List<String>,
+            expression: (first: String, second: String, operator: String) -> String
+        ): List<String> =
+            list1.map { first ->
+                list2.map { second ->
+                    operators.map { operator ->
+                        expression.invoke(first, second, operator)
+                    }
+                }.flatten()
             }.flatten()
 
         fun assertValues(expression: String, vararg index: Int) {
@@ -350,16 +396,16 @@ internal class CompilerTest {
         testSubject.compile(expression)
     }
 
-    private fun escape(a: String): String = "\"${"([\"\\\\])".toRegex().replace(a, "\\\\$1")}\""
+    private fun escape(a: String): String =
+        "\"${"([\"\\\\])".toRegex().replace(a, "\\\\$1")}\""
 
     private fun filter(
         objectA: String,
         objectB: String,
         objectC: String,
         expression: String?
-    ): List<String> {
-        return listOf(objectA, objectB, objectC).filterMapByExpression(expression, emptyMap()) { it }
-    }
+    ): List<String> =
+        listOf(objectA, objectB, objectC).filterMapByExpression(expression, emptyMap()) { it }
 
     @Test
     fun assertValues() {
@@ -1077,75 +1123,5 @@ internal class CompilerTest {
             )
         }).isEqualTo(expected to (objectArray.toList() - expected.toSet()))
     }
-
-    //    @Test
-//    fun compile_GivenEnum() {
-//        assertThat("A".filterByExpression<TestEnum>()).containsExactly(TestEnum.A)
-//        assertThat("(A)".filterByExpression<TestEnum>()).containsExactly(TestEnum.A)
-//        assertThat("!A".filterByExpression<TestEnum>()).containsExactly(TestEnum.B, TestEnum.C)
-//        assertThat("!(A)".filterByExpression<TestEnum>()).containsExactly(TestEnum.B, TestEnum.C)
-//        assertThat("!A|A".filterByExpression<TestEnum>()).containsExactly(TestEnum.A, TestEnum.B, TestEnum.C)
-//        assertThat("!A&A".filterByExpression<TestEnum>()).isEmpty()
-//        assertThat("(!A|B)|A".filterByExpression<TestEnum>()).containsExactly(TestEnum.A, TestEnum.B, TestEnum.C)
-//        assertThat("X".filterByExpression<TestEnum>()).isEmpty()
-//        assertThat("!X".filterByExpression<TestEnum>()).containsExactly(TestEnum.A, TestEnum.B, TestEnum.C)
-//    }
-//
-//    @Test
-//    fun collectionFilter() {
-//        assertThat(objectList.filterMapByExpression("A") { it.value }).containsExactly(OBJECT_A)
-//        assertThat(objectList.filterMapByExpression("B") { it.value }).containsExactly(OBJECT_B)
-//        assertThat(objectList.filterMapByExpression("C") { it.value }).containsExactly(OBJECT_C)
-//        assertThat(objectList.filterMapByExpression("!A") { it.value }).containsExactly(OBJECT_B, OBJECT_C)
-//        assertThat(objectList.filterMapByExpression("") { it.value }).isEmpty()
-//        assertThat(objectList.filterMapByExpression(null) { it.value }).containsAll(objectList)
-//        assertThat(objectList.filterMapByExpression("ALL", mapOf("ALL" to "A|B|C")) { it.value }).containsAll(objectList)
-//    }
-//
-//    @Test
-//    fun arrayFilter() {
-//        assertThat(objectArray.filterMapByExpression("A") { it.value }).containsExactly(OBJECT_A)
-//        assertThat(objectArray.filterMapByExpression("B") { it.value }).containsExactly(OBJECT_B)
-//        assertThat(objectArray.filterMapByExpression("C") { it.value }).containsExactly(OBJECT_C)
-//        assertThat(objectArray.filterMapByExpression("!A") { it.value }).containsExactly(OBJECT_B, OBJECT_C)
-//        assertThat(objectArray.filterMapByExpression("") { it.value }).isEmpty()
-//        assertThat(objectArray.filterMapByExpression(null) { it.value }).containsAll(objectList)
-//        assertThat(objectArray.filterMapByExpression("ALL", mapOf("ALL" to "A|B|C")) { it.value }).containsAll(objectList)
-//    }
-//
-//    @Test
-//    fun stringCollectionPartition() {
-//        assertThat(stringList.partitionByExpression("A")).isEqualTo(stringList.filterByExpression("A") to stringList.filterNotByExpression("A"))
-//        assertThat(stringList.partitionByExpression("B")).isEqualTo(listOf("B") to listOf("A", "C"))
-//        assertThat(stringList.partitionByExpression("C")).isEqualTo(listOf("C") to listOf("A", "B"))
-//        assertThat(stringList.partitionByExpression("!A")).isEqualTo(listOf("B", "C") to listOf("A"))
-//        assertThat(stringList.partitionByExpression("")).isEqualTo(emptyList<String>() to listOf("A", "B", "C"))
-//        assertThat(stringList.partitionByExpression(null)).isEqualTo(listOf("A", "B", "C") to emptyList<String>())
-//        assertThat(stringList.partitionByExpression("ALL", mapOf("ALL" to "A|B|C"))).isEqualTo(listOf("A", "B", "C") to emptyList<String>())
-//        assertThat(stringList.partitionByExpression("AB", mapOf("AB" to "A|B"))).isEqualTo(listOf("A", "B") to listOf("C"))
-//    }
-//
-//    @Test
-//    fun stringArrayFilter() {
-//        assertThat(stringArray.filterByExpression("A")).containsExactly("A")
-//        assertThat(stringArray.filterByExpression("B")).containsExactly("B")
-//        assertThat(stringArray.filterByExpression("C")).containsExactly("C")
-//        assertThat(stringArray.filterByExpression("!A")).containsExactly("B", "C")
-//        assertThat(stringArray.filterByExpression("B|C")).containsExactly("B", "C")
-//        assertThat(stringArray.filterByExpression("")).isEmpty()
-//        assertThat(stringArray.filterByExpression(null)).containsAll(stringList)
-//        assertThat(stringArray.filterByExpression("ALL", mapOf("ALL" to "A|B|C"))).containsAll(stringList)
-//    }
-//
-//    @Test
-//    fun stringSequenceFilter() {
-//        assertThat(stringList.asSequence().filterByExpression("A").toList()).containsExactly("A")
-//        assertThat(stringList.asSequence().filterByExpression("B").toList()).containsExactly("B")
-//        assertThat(stringList.asSequence().filterByExpression("C").toList()).containsExactly("C")
-//        assertThat(stringList.asSequence().filterByExpression("!A").toList()).containsExactly("B", "C")
-//        assertThat(stringList.asSequence().filterByExpression("").toList()).isEmpty()
-//        assertThat(stringList.asSequence().filterByExpression(null).toList()).containsAll(stringList)
-//        assertThat(stringList.asSequence().filterByExpression("ALL", mapOf("ALL" to "A|B|C")).toList()).containsAll(stringList)
-//    }
 }
 

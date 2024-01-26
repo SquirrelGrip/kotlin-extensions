@@ -15,7 +15,8 @@ expression:
   | LPAREN expression RPAREN #ParenExpression
   | expression AND expression #AndExpression
   | expression OR expression #OrExpression
-  | expression XOR expression #XorExpression;
+  | expression XOR expression #XorExpression
+  | expression IMPLIES expression #ImpliesExpression;
 
 literal: BOOLEAN;
 text: IN_STRING_ESCAPED_TEXT | IN_STRING_TEXT;
